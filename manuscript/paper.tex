@@ -1,0 +1,970 @@
+\documentclass[10pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage[round,authoryear]{natbib}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{appendix}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{dsfont}
+\usepackage{mathptmx}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1.25in]{geometry}
+\usepackage{setspace}
+\setstretch{1.25}
+\usepackage{threeparttable}
+\captionsetup{labelfont=bf, textfont=it}
+\usepackage{array}
+\usepackage{multirow}
+
+% Configure hyperref for colored citations
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\renewcommand{\appendixname}{Appendix}
+
+\author{Bruno Cittolin Smaniotto\thanks{Replication material available at \url{https://github.com/brunosmaniotto/TrendCycle}.}}
+\date{}
+
+\begin{document}
+
+\title{Trend-Cycle Decompositions and Asymmetric Business Cycles}
+
+\maketitle
+
+\begin{abstract}
+
+The Hodrick-Prescott filter is widely used as a flexible, model-free tool for separating trends from cycles. Yet its quadratic penalty function implicitly targets the conditional mean of the cycle distribution, an estimand that coincides with the median only when fluctuations are symmetric. This paper replaces the quadratic penalty with an absolute-value penalty, producing a filter that targets the conditional median instead. The resulting trend resists contamination by large transitory shocks and traces a piecewise-linear path through the data, while the extracted cycle is deeper in recessions but largely unchanged during expansions. Monte Carlo experiments show that the L1 filter substantially reduces cycle RMSE on asymmetric data-generating processes, with gains concentrated in the contraction phase, but generates larger spurious cycles on symmetric processes. Repeating each exercise with the Hamilton filter yields near-identical results across norms, confirming that the norm choice matters primarily through the HP trend's smoothness penalty and that the Hamilton filter is largely robust to this specification decision. Simulations calibrated to specific asymmetry mechanisms confirm that the filter performs well when asymmetry arises from capacity ceilings, financial frictions, or uncertainty shocks, but not when shocks permanently alter the trend. Applied to U.S. GDP, the L1 cycle aligns more closely with Congressional Budget Office output gap estimates, implies a flatter Phillips Curve, and prescribes more aggressive monetary easing after deep recessions. The broader implication is that the choice of penalty function encodes a view about the shape of the business cycle, and the standard quadratic penalty is not as neutral as it may appear.
+
+\end{abstract}
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SECTION 1: INTRODUCTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+\label{sec:introduction}
+
+Business cycles are among the most robust empirical regularities in macroeconomics, documented across time and space and acknowledged by every major school of thought. What exactly constitutes a business cycle, however, is less settled, in part because cycles are not directly observable, only combined with the trend, seasonal, and irregular components of macroeconomic time series. Disentangling raw time series into these subcomponents has been an active area of work for decades, and yet there is no consensus on the best approach to the task.
+
+In practice, seasonal variation is typically removed in a preliminary step using filters such as X-13ARIMA-SEATS (U.S. Census Bureau, 2017), leaving the trend-cycle separation as the core methodological challenge. The Hodrick-Prescott filter has long been the workhorse for this task \citep{hodrick_prescott1997}. Its appeal is practical, since it requires a single tuning parameter, is numerically straightforward, and produces trends and cycles that broadly match practitioners' priors. Even after \citet{hamilton2018} raised concerns about its statistical properties, the filter remains a default step in applied macroeconomic research.
+
+The filter is framed as a minimization problem with deliberately minimal structure: the trend should be smooth, and deviations from it constitute the cycle. It imposes no model of what drives fluctuations, no assumption about their duration or shape, and no prior on whether recessions and expansions behave differently. The goal was to let the data speak, providing measurement that could guide theoretical development rather than be constrained by it.
+
+In this paper, we ask whether this setup carries an implicit assumption, specifically that business cycles are symmetric. The question is motivated by the robust statistics literature, which has long established that quadratic loss functions target the mean of a distribution rather than the median \citep{huber1964, koenker_bassett1978}. When business cycles are symmetric, mean and median coincide and the distinction is not significant. A large empirical literature suggests they are not. \citet{neftci1984} and \citet{sichel1993} document significant asymmetry in U.S. GDP data, and \citet{mckay_reis2008} find that contractions are systematically shorter and more violent than expansions across a broad cross-section of countries.
+
+On the theoretical side, several classes of macroeconomic models naturally generate asymmetric fluctuations. \citet{acemoglu_etal2012} derive closed-form expressions for how the variance, kurtosis, and skewness of aggregate output depend on the network structure of production, and \citet{baqaee_farhi2019} show that nonlinearities in these networks magnify negative shocks while attenuating positive ones. Models with financial frictions \citep{bernanke_etal1999, kiyotaki_moore1997} generate asymmetry through collateral constraints that bind sharply in downturns but do not symmetrically boost output during recoveries. In heterogeneous-agent models \citep{kaplan_etal2018, auclert_etal2020}, borrowing-constrained households cannot smooth consumption downward, amplifying the aggregate response to negative shocks. The most extreme formulation of this asymmetry is \citet{friedman1964}'s plucking model, in which output fluctuates below a capacity ceiling rather than around a long-run center, recently revived by \citet{dupraz_etal2020} and microfounded through downward nominal wage rigidity.
+
+To investigate this question, we propose a modified version of the HP filter that replaces the quadratic loss with an absolute-value loss. Where the quadratic penalty targets the conditional mean of the data, the absolute-value penalty targets the conditional median, a measure of central tendency that is not pulled toward extreme observations. When recessions are deep but rare, the mean of the cycle is dragged downward, and a mean-targeting trend splits the difference between peaks and troughs. A median-targeting trend instead tracks where output spends most of its time, producing a path closer to the economy's capacity ceiling. We apply the same substitution to \citet{hamilton2018}'s regression-based filter, replacing least squares with least absolute deviations.
+
+Monte Carlo experiments on six data-generating processes reveal when the norm choice matters. On DGPs that produce asymmetric cycles, whether through one-sided shocks, skewed innovations, or sharp crashes, the L1 filter reduces cycle RMSE by up to 65 percent relative to the standard HP filter, with the largest gains on plucking and sharp crash specifications. On symmetric random walk processes, the pattern reverses, and the L1 filter generates higher-variance spurious cycles and its RMSE more than doubles relative to the L2 baseline. The filter is not uniformly better; it trades accuracy on symmetric series for large gains on asymmetric ones. The Hamilton filter, which defines the cycle as a regression residual rather than through a smoothness-penalized trend, produces near-identical L1 and L2 results across every experiment, isolating the HP trend's smoothness penalty as the channel through which the norm choice operates.
+
+Simulations built around specific asymmetry mechanisms sharpen this conclusion. On output simulated from a plucking model with a capacity ceiling, the L1 filter tracks the true cycle closely while the L2 filter distributes the recessionary gap across neighboring periods. Financial accelerator and uncertainty shock models, which generate sharp contractions through collateral constraints and endogenous volatility, produce similar results. The exception is hysteresis, where permanent output losses shift the true trend downward and neither filter recovers it well. The L1 filter's advantage is specific to transitory asymmetry; when shocks alter the trend itself, the gains disappear.
+
+Applied to U.S. real GDP, the L1 cycle is deeper in most postwar recessions and closer to the Congressional Budget Office's output gap estimates than the standard HP cycle. The divergence is largest during the 1981--82 recession, where the L1 cycle reaches $-7.3$ percent of potential, nearly matching the CBO's $-6.9$ percent, while L2 registers only $-4.8$ percent. These differences propagate into policy measures: Taylor Rule prescriptions based on L1 gaps prescribe more aggressive easing after deep recessions, and Phillips Curve regressions using L1 gaps imply a substantially flatter slope. The L1 filter is not without cost. Real-time revisions are roughly 50 percent larger than for the standard filter, and out-of-sample inflation forecasts show no improvement. The gains are concentrated in measuring what has already happened rather than in predicting what will happen next.
+
+The trend-cycle decomposition literature offers several alternatives to the HP filter, each addressing different concerns. \citet{baxter_king1999} and \citet{christiano_fitzgerald2003} developed bandpass filters that isolate fluctuations within a specified frequency range, avoiding the need to estimate a trend directly. \citet{harvey1985} and \citet{clark1987} proposed unobserved components models that treat the trend and cycle as latent state variables estimated jointly via the Kalman filter. \citet{hamilton2018} argued for replacing the HP filter altogether with a regression-based approach that avoids endpoint instability and spurious cycle generation. \citet{ravn_uhlig2002} refined the HP filter's tuning parameter for different data frequencies, and \citet{phillips_jin2021} established its asymptotic properties. These contributions address the choice of filter, the choice of frequency band, or the statistical properties of a given estimator. On the methodological side, the $\ell_1$ trend filter of \citet{kim_etal2009} replaces the L2 smoothness penalty with an L1 penalty to produce piecewise-linear trends, and robust alternatives to standard estimators have a long history in statistics \citep{huber1964, koenker_bassett1978}. Our contribution is to connect the norm choice to the specific problem of asymmetric business cycles, showing that the L2 assumption is consequential when recessions and expansions differ in shape and that the resulting cycle estimates lead to different empirical conclusions.
+
+The paper proceeds as follows. Section~\ref{sec:l1hp} introduces the L1-HP filter, develops its key properties, and illustrates the difference between L1 and L2 trends on U.S. GDP data. Section~\ref{sec:formal} addresses lambda selection, discusses inference via block bootstrap, and extends the L1 approach to \citet{hamilton2018}'s regression-based filter. Section~\ref{sec:montecarlo} evaluates both filters on a battery of simulated data-generating processes designed to span symmetric, asymmetric, and fat-tailed environments. Section~\ref{sec:structural} tests the filters on simulations built around specific asymmetry mechanisms from the theoretical literature. Section~\ref{sec:empirical} applies the filters to U.S. GDP, compares the results to CBO estimates, and examines implications for the Taylor Rule, the Phillips Curve, and real-time reliability. Section~\ref{sec:conclusion} concludes.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SECTION 2: THE L1-HP FILTER
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{The L1-HP Filter}
+\label{sec:l1hp}
+
+The focus here is on motivation and illustration rather than implementation; Section~\ref{sec:formal} addresses lambda selection, inference, and formal properties, while Sections~\ref{sec:montecarlo} through~\ref{sec:empirical} evaluate the filter on simulated data, asymmetry mechanism simulations, and U.S. macroeconomic data.
+
+Consider the family of Lp trend filters indexed by $p \geq 1$:
+\begin{equation}
+\label{eq:hp_lp}
+\min_{\tau} \sum_{t=1}^{T} |y_t - \tau_t|^p + \lambda \sum_{t=2}^{T-1} |\Delta^2 \tau_t|^p
+\end{equation}
+
+When $p = 2$, this is the Hodrick-Prescott filter \citep{hodrick_prescott1997}. When $p = 1$, we call it the L1-HP filter. The two norms differ in what they treat as the ``center'' of the data. The quadratic loss in the $p = 2$ case penalizes large deviations more than proportionally, pulling the trend toward the conditional mean of the series. The absolute-value loss in the $p = 1$ case penalizes all deviations equally regardless of size, so the trend tracks the conditional median instead. When the cycle is symmetric, mean and median coincide and the choice of $p$ makes no difference. When recessions are deep but infrequent, as documented by \citet{neftci1984} and \citet{sichel1993}, the mean is pulled below the median, and the two filters produce different trends.
+
+Figure~\ref{fig:mean_vs_median} illustrates the distinction on a stylized asymmetric cycle. The series fluctuates around a ceiling, with three contractions of different depths separated by longer expansions. The top row shows where the mean and median fall. Because the series spends most of its time near the ceiling, the median tracks it closely. The mean, pulled down by the deep trough in the second contraction, sits noticeably lower. The bottom row shows why. Under the squared penalty ($p = 2$), each observation's influence grows with its distance from the line: the few observations at the bottom of the deep contraction generate enormous penalties that dominate the objective, dragging the line downward. Under the absolute-value penalty ($p = 1$), every observation exerts the same unit of influence regardless of distance, so the many observations near the ceiling outvote the few at the trough. The gap between the two lines is what a symmetric filter misses.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../output/figures/section_2/figure_01_mean_vs_median.png}
+\caption{Mean vs.\ median on a stylized asymmetric cycle. Top row: the $p = 2$ trend (mean) sits below the $p = 1$ trend (median) because deep contractions pull the mean down. Bottom row: squared deviations amplify the influence of extreme observations; absolute deviations weight each observation equally.}
+\label{fig:mean_vs_median}
+\end{figure}
+
+To see how this distinction affects trend-cycle decomposition, we construct a simple simulation. The data-generating process combines a linear trend with the same type of asymmetric cycle shown in Figure~\ref{fig:mean_vs_median}: three contractions of varying depth separated by longer expansions near the trend line, plus a small amount of noise. Figure~\ref{fig:trend_cycle_comparison} applies the L2 and L1 filters to the simulated series, with smoothing parameters chosen to match trend smoothness across norms. The left panel shows the data alongside the true trend. The middle panel overlays the extracted trends. The L2 trend curves through the troughs, absorbing part of each contraction into the trend itself, while the L1 trend follows the true linear path more closely with a piecewise-linear trajectory. The right panel shows the consequences for the extracted cycle. The L2 cycle oscillates roughly symmetrically around zero, understating the depth of each contraction. The L1 cycle stays near zero during expansions and drops sharply during contractions, tracking the true cycle more faithfully. The two filters tell different stories about the same data. One says the economy fluctuates symmetrically around a smooth trend, the other says it operates near capacity and gets pulled below it during recessions.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../output/figures/section_2/figure_02_trend_cycle_comparison.png}
+\caption{L1 vs.\ L2 trend-cycle decomposition on simulated asymmetric data. Left: data with the true linear trend. Middle: extracted trends --- the L2 trend (dashed) curves through the troughs, while the L1 trend (dotted) tracks the true trend. Right: extracted cycles --- the L2 cycle understates contractions, while the L1 cycle captures their depth. Smoothing parameters are chosen to match trend smoothness across norms: $\lambda_{L2} = 1600$, $\lambda_{L1} = 130$. Section~\ref{sec:lambda} discusses lambda selection in detail.}
+\label{fig:trend_cycle_comparison}
+\end{figure}
+
+The difference between L1 and L2 filters can be summarized in three properties.
+
+\textbf{Property 1: Median targeting.} The L1 fit term solves a conditional median regression subject to a smoothness constraint. Where the L2 filter places the trend at the conditional mean of the data, the L1 filter places it at the conditional median. This distinction inherits its properties from quantile regression \citep{koenker_bassett1978, koenker2005}: the median is less sensitive to extreme observations than the mean, and the estimator has a higher breakdown point \citep{rousseeuw_leroy1987}. In the context of trend estimation, this means that a single deep recession shifts the L1 trend less than it shifts the L2 trend, exactly as Figures~\ref{fig:mean_vs_median} and~\ref{fig:trend_cycle_comparison} illustrate.
+
+\textbf{Property 2: Trend contamination under L2.} The quadratic penalty creates a strong incentive to bend the trend toward extreme observations. When a deep recession opens a large gap between the data and the trend, the L2 filter pays a penalty that grows with the square of that gap. The cheapest way to reduce it is to pull the trend downward through the recession, absorbing part of the cyclical contraction into the trend itself. Figure~\ref{fig:trend_cycle_comparison} illustrates this directly. The true trend is a straight line, but the L2 trend curves through each trough because leaving the trend straight would leave squared residuals that are too costly. The result is a trend contaminated by cyclical variation and a cycle that appears more symmetric than it actually is. The L1 filter does not face this pressure. Because the absolute-value penalty grows linearly with the gap, a deep recession costs only proportionally more than a shallow one, and the filter can leave the trend in place. The L1 trend in the simulation stays close to the true linear path, producing instead a piecewise-linear trajectory with discrete knots where the growth rate shifts \citep{kim_etal2009}.
+
+\textbf{Property 3: Capacity ceiling interpretation.} When the cycle is negatively skewed, the median lies above the mean, and the L1 trend sits closer to the upper envelope of the data than the L2 trend does. Output appears to fluctuate below a capacity ceiling rather than around a long-run center. This is precisely the pattern proposed by \citet{friedman1964, friedman1993} in the plucking model, in which recessions represent temporary departures below potential rather than symmetric oscillations around it. \citet{kim_nelson1999} formalized this as a regime-switching model with an absorbing upper bound, and \citet{dupraz_etal2020} provided micro-foundations through downward nominal wage rigidity. The L1 filter recovers this pattern without imposing it, as the ceiling interpretation emerges from the median-targeting property whenever the data exhibit the asymmetry that motivates it.
+
+The type of asymmetry in this simulation is a feature of several recent macroeconomic models. Its skewness of $-0.90$ falls within the range produced by calibrated simulations of different asymmetry mechanisms. \citet{baqaee_farhi2019} show that nonlinearities in production networks amplify negative shocks while attenuating positive ones, producing cycle skewness on the order of $-0.3$ to $-0.5$ in calibrations to U.S. input-output tables. The plucking model of \citet{dupraz_etal2020}, built on downward nominal wage rigidity, generates skewness around $-1.7$. The simulation sits between these two benchmarks. The pattern of small expansions near a ceiling interrupted by sharp but infrequent contractions is not an artifact of our illustration; it is what several classes of macroeconomic models predict.
+
+We now turn to how the norm choice affects the decomposition of real macroeconomic data. Figure~\ref{fig:gdp_investment} applies the L2 and L1 filters to U.S. Real GDP and Gross Private Investment over the period 2000--2023, a window that includes the dot-com recession, the Global Financial Crisis, and the COVID-19 contraction.\footnote{Smoothing parameters are $\lambda_{L2} = 1600$ \citep{ravn_uhlig2002} and $\lambda_{L1} = 600$, chosen to match trend smoothness across norms on U.S. GDP data. Section~\ref{sec:lambda} discusses this calibration.} The left column shows the extracted trends. For GDP, the L1 trend is piecewise linear and tracks the upper envelope of the series; the L2 trend bends downward through each recession, absorbing cyclical variation into the trend as described in Property 2. The pattern is amplified for investment, which is more cyclically sensitive: the L2 trend dips visibly through the GFC, while the L1 trend remains closer to the pre-crisis trajectory. The right column shows the consequences for the extracted cycle. The three recessions in this window illustrate how the norm choice scales with severity. During the mild 2001 dot-com recession, the two filters produce similar cycles. During the 2008 Global Financial Crisis, the L1 filter measures the GDP contraction as roughly twice as deep as the L2 filter does, and for investment the gap is larger still. During the sharp COVID-19 contraction, both filters register the drop, but the L1 cycle falls further and recovers faster, consistent with the plucking pattern described in Property 3. During expansions, the two cycles are similar. The filters agree on the good times; they disagree on how bad the bad times are.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../output/figures/section_2/figure_03_gdp_investment.png}
+\caption{L1 vs.\ L2 trend-cycle decomposition on U.S. Real GDP (top row) and Gross Private Investment (bottom row), 2000--2023. Left column: log levels with extracted trends. Right column: extracted cycles. Grey shading indicates NBER recession dates. The L1 trend hugs the peaks while the L2 trend curves through recessions, producing deeper L1 cycles during contractions.}
+\label{fig:gdp_investment}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SECTION 3: FORMAL PROPERTIES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Formal Properties}
+\label{sec:formal}
+
+The previous section introduced the L1 filter and showed that the norm choice produces meaningfully different decompositions. Section~\ref{sec:lambda} develops a principled approach to selecting the smoothing parameter $\lambda$, which is not comparable across norms. Section~\ref{sec:inference} describes a block bootstrap procedure for inference on the extracted cycle. Section~\ref{sec:l1hamilton} extends the L1 approach to \citet{hamilton2018}'s regression-based filter; all results from Sections~\ref{sec:montecarlo} through~\ref{sec:empirical} are replicated for the L1-Hamilton filter in Appendix~\ref{app:hamilton}. Readers primarily interested in the filter's empirical performance may proceed directly to Section~\ref{sec:montecarlo}.
+
+\subsection{Lambda Selection}
+\label{sec:lambda}
+
+Like the standard HP filter, the L1 filter requires a single hyperparameter $\lambda$ that governs the smoothness of the extracted trend. Our first observation is that, despite this shared interpretation, the parameter is not comparable across norms. The L2 penalty squares deviations in trend growth, so a large $\lambda$ discourages curvature gradually, since doubling a deviation quadruples its cost. The L1 penalty is linear in these deviations, so the same $\lambda$ imposes a much harsher constraint --- any nonzero change in trend growth pays a cost proportional to its size, with no discount for small adjustments. At $\lambda = 1600$, the standard calibration of \citet{ravn_uhlig2002}, the L2 filter produces smooth but flexible trends on quarterly data. The L1 filter at the same value penalizes trend curvature so heavily that the extracted trend is forced toward linearity. A principled L1 calibration requires a different approach.
+
+Before selecting a value, we first ask how the parameter maps between norms. A fair comparison between L1 and L2 filters requires holding trend smoothness constant; otherwise, any difference in the extracted cycle could reflect the lambda choice rather than the norm. We measure trend smoothness by the standard deviation of second differences of the extracted trend, and for each L2 lambda we search over L1 lambdas to match it. On U.S. Real GDP, matching the smoothness of the L2 filter at $\lambda = 1600$ yields an L1 lambda of approximately 600. This equivalent-smoothness logic parallels the degrees-of-freedom matching used in nonparametric smoothing \citep{hastie_tibshirani1990}, and it is the approach we used to set the L1 parameters in Figures~\ref{fig:trend_cycle_comparison} and~\ref{fig:gdp_investment}.
+
+We take a different approach to lambda selection. In the spirit of \citet{li_etal2024}, who evaluate local projections and VARs across thousands of data-generating processes rather than relying on a single theoretical benchmark, we reverse-engineer the optimal $\lambda$: for each of six DGPs with known true trends, we find the $\lambda$ that minimizes trend RMSE across 500 Monte Carlo replications. Since this oracle search has not, to our knowledge, been performed systematically for the standard HP filter, we report results for both L1 and L2.\footnote{Existing calibrations of $\lambda$ are either frequency-domain arguments \citep{ravn_uhlig2002}, maximum-likelihood estimators applied to specific UC models \citep{schlicht2005}, or asymptotic conditions on the growth rate of $\lambda$ with sample size \citep{phillips_jin2021}. \citet{hodrick2020} compares filters on simulated data with known cycles but fixes $\lambda = 1600$ throughout.} The DGPs span a symmetric random walk, an unobserved components model, and processes with built-in asymmetry including a statistical plucking model and sharp crash dynamics; Section~\ref{sec:montecarlo} describes them in detail.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Oracle-optimal $\lambda$ by data-generating process.}
+\label{tab:oracle_lambdas}
+\begin{tabular}{l rr rr rr}
+\toprule
+& \multicolumn{3}{c}{L2-HP} & \multicolumn{3}{c}{L1-HP} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+DGP & $\lambda^*$ & RMSE$^*$ & RMSE$_{1600}$ & $\lambda^*$ & RMSE$^*$ & RMSE$_{600}$ \\
+\midrule
+\multicolumn{7}{l}{\textit{Symmetric}} \\
+Random Walk        &    10 & 0.656 & 1.264 &    10 & 0.988 & 2.608 \\
+UC Model           &    10 & 0.643 & 2.379 &    10 & 0.858 & 15.01 \\
+Phase Shift        &  4000 & 1.507 & 2.048 &   200 & 1.012 & 1.014 \\
+\midrule
+\multicolumn{7}{l}{\textit{Asymmetric}} \\
+Stat.\ Plucking    &  4000 & 0.796 & 0.823 &  2500 & 0.272 & 0.289 \\
+Sharp Crash        &  4000 & 1.746 & 2.020 &   800 & 1.001 & 1.001 \\
+Asym.\ GARCH       &  4000 & 0.176 & 0.198 &  2500 & 0.185 & 0.185 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} $\lambda^*$ is the value minimizing mean trend RMSE over 500 Monte Carlo replications ($T = 200$). RMSE$^*$ is the RMSE at the oracle $\lambda$. RMSE$_{1600}$ and RMSE$_{600}$ evaluate each filter at its conventional default. Section~\ref{sec:montecarlo} describes the DGPs.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Table~\ref{tab:oracle_lambdas} reports the results, and two patterns stand out. First, the oracle $\lambda$ is highly DGP-specific for both norms, ranging from 10 to 4000. The conventional $\lambda = 1600$ is far from optimal for L2 on the random walk, where it costs over 90 percent in RMSE, and on the UC model, where it costs over 270 percent because the trend itself has stochastic variation that a high $\lambda$ cannot accommodate. The standard calibration performs well only on DGPs with smooth deterministic trends, where the oracle is itself high. Second, the two norms respond differently to asymmetry. On symmetric DGPs, L2 achieves lower oracle RMSE than L1, consistent with the well-known efficiency of the mean under symmetry. On the asymmetric DGPs that motivate our filter, this advantage reverses. L1 achieves an oracle RMSE of 0.272 on the plucking model, roughly a third of L2's 0.796. For these DGPs, $\lambda = 600$ incurs at most 6 percent RMSE loss relative to the L1 oracle, and on the sharp crash and asymmetric GARCH processes the loss is under 1 percent. The norm choice matters most where asymmetry is strongest, and in those cases L1 is the better filter even when both norms are given their best possible $\lambda$.
+
+We adopt $\lambda = 600$ for our empirical work. This value emerges from smoothness matching on U.S. GDP, sits on a stable plateau where the extracted cycle's properties are robust to perturbation, and performs within 6 percent of the oracle on all three asymmetric DGPs. The original \citet{hodrick_prescott1997} calibration of $\lambda = 1600$ was itself a judgment call based on prior beliefs about the relative variability of the trend and cycle; our choice follows the same spirit, informed by the diagnostics reported here. Appendix~\ref{app:lambda_sensitivity} reports sensitivity analysis across the range $\lambda \in [600, 2000]$.
+
+\subsection{Inference}
+\label{sec:inference}
+
+Inference on the L1-HP cycle requires a nonparametric approach, since it is not known whether a closed-form expression for its sampling distribution exists. We use a block bootstrap \citep{kunsch1989} that preserves the serial correlation structure of the cycle. The procedure is to apply the L1-HP filter to obtain an initial trend and cycle estimate, then resample blocks of the cycle with replacement, add the resampled cycle to the fixed trend to form a pseudo-series, and re-apply the filter. Repeating this $B = 500$ times yields a distribution of cycle estimates at each date, from which we construct pointwise percentile confidence intervals. Block length is selected automatically using the AR(1)-based rule of \citet{politis_white2004}, which balances the need for long enough blocks to capture dependence against short enough blocks to allow adequate resampling.
+
+The bootstrap performs well for the cycle but poorly for the trend. In Monte Carlo experiments at the 90\% nominal level, cycle coverage ranges from 79\% to 97\% across DGPs, near or above the target for most specifications though below nominal on the sharp crash DGP. Trend coverage ranges from 26\% to 87\%, far below nominal. This asymmetry is by construction, because the bootstrap resamples the cycle while holding the trend fixed, so it can quantify uncertainty about the cycle conditional on the trend but cannot capture trend uncertainty. The poor trend coverage connects to a broader difficulty with non-smooth estimators: the L1 trend's piecewise-linear structure means that small perturbations in the data can shift knot locations discretely, a source of variation the block bootstrap does not capture \citep{knight1998}. No formal asymptotic theory for the L1-HP filter currently exists. We view the bootstrap as providing reliable cycle inference while acknowledging that trend uncertainty remains an open problem. Appendix~\ref{app:bootstrap_coverage} reports coverage results by DGP.
+
+\subsection{L1-Hamilton Filter}
+\label{sec:l1hamilton}
+
+\citet{hamilton2018} identified several limitations of the HP filter: it generates spurious cyclical dynamics when applied to integrated processes, produces cycle estimates that depend on future observations, and yields trend estimates at the end of the sample that are subject to large revisions. He proposed an alternative: regress $y_{t+h}$ on a constant and $p$ lags of $y_t$, and define the cycle as the residual. With defaults of $h = 8$ quarters and $p = 4$ lags, this regression-based filter uses only past data, does not generate spurious cycles on random walks, and produces stable endpoint estimates. The approach has gained traction in applied macroeconomics as a complement or alternative to the HP filter.
+
+Our argument about the choice of norm extends to the Hamilton filter. The regression that defines it is estimated by ordinary least squares, which is itself a quadratic loss function, since OLS minimizes $\sum_t (y_{t+h} - \alpha - \sum_j \beta_j y_{t-j})^2$, targeting the conditional mean of $y_{t+h}$ given past values. When the distribution of forecast errors is asymmetric, the same reasoning from Section~\ref{sec:l1hp} applies. Specifically, the conditional mean is pulled toward extreme observations, and the conditional median provides a more robust measure of the center. The L1 properties developed for the HP filter carry over, as we show in Appendix~\ref{app:hamilton}, which replicates all results from Sections~\ref{sec:montecarlo} through~\ref{sec:empirical} for the Hamilton filter. The Hamilton filter can be adapted to the L1 norm by replacing OLS with least absolute deviations \citep{koenker_bassett1978, koenker2005}, a well-established method in the robust statistics literature with known asymptotic properties. We refer to this modification as the L1-Hamilton filter:
+\begin{equation}
+\label{eq:hamilton_l1}
+\min_{\beta} \sum_{t} \left| y_{t+h} - \alpha - \sum_{j=0}^{p-1} \beta_j y_{t-j} \right|
+\end{equation}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SECTION 4: MONTE CARLO EVIDENCE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Monte Carlo Evidence}
+\label{sec:montecarlo}
+
+We begin by evaluating the L1 and L2 filters on six data-generating processes that cover a wide range of the time-series dynamics encountered in macroeconomic data. This simulation-based approach, recently used by \citet{li_etal2024} to compare local projections and VARs, is not only numerically convenient but also allows a direct comparison between the true moments of each simulated cycle and the moments recovered by the filters. Because the true trend is known in each DGP, we can measure trend recovery through bias and root mean squared error, and compare the estimated cycle's skewness against its population value. We simulate 500 replications of $T = 200$ quarterly observations for each DGP and evaluate four filters: HP-L2 ($\lambda = 1600$), HP-L1 ($\lambda = 600$), and the Hamilton-L2 and Hamilton-L1 filters with $h = 8$ quarters and $p = 4$ lags. Full parameter values for all DGPs are documented in the replication archive.
+
+The simplest DGP is a pure random walk ($y_t = y_{t-1} + \varepsilon_t$), which has no cycle: the entire series is trend, and any extracted cycle is spurious \citep{hamilton2018}. The unobserved components model of \citet{harvey1985} and \citet{clark1987} combines an I(2) stochastic trend with an AR(1) cycle and Gaussian innovations. The phase shift DGP pairs a linear trend with a sinusoidal cycle of period 40 quarters, producing regular oscillations at a known frequency.
+
+The statistical plucking DGP implements \citet{friedman1964}'s model, where a linear trend serves as a capacity ceiling, and the cycle is a censored AR(1) that can only take nonpositive values, so output is either at potential or below it. The sharp crash DGP generates slow expansions interrupted by sudden contractions, a sawtooth pattern motivated by the financial crisis dynamics of \citet{reinhart_rogoff2009} and the sudden stops of \citet{calvo1998}. The asymmetric GARCH DGP combines a deterministic trend with skewed GARCH(1,1) innovations \citep{glosten_etal1993}, introducing time-varying volatility and distributional asymmetry.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Monte Carlo results: HP filter trend recovery and cycle properties.}
+\label{tab:mc_results}
+\begin{tabular}{l rrr rrr r}
+\toprule
+& \multicolumn{3}{c}{HP-L2 ($\lambda = 1600$)} & \multicolumn{3}{c}{HP-L1 ($\lambda = 600$)} & \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+DGP & Bias & RMSE & Skew & Bias & RMSE & Skew & $\Delta$RMSE \\
+\midrule
+Random Walk        &    0.00 & \textbf{1.26} &    0.00 &    0.00 & 2.61 &    0.00 & $+$106\% \\
+UC Model           &    0.00 & \textbf{2.38} &    0.01 &    0.11 & 15.01 &    0.01 & $+$531\% \\
+Phase Shift        &    0.00 & 2.05 &    0.00 & $-$0.02 & \textbf{1.01} &    0.01 & $-$50\% \\
+\midrule
+Stat.\ Plucking   & $-$0.66 & 0.82 & $-$1.12 & $-$0.25 & \textbf{0.29} & $-$1.53 & $-$65\% \\
+Sharp Crash        &    0.00 & 2.02 &    0.00 &    0.00 & \textbf{1.00} &    0.00 & $-$50\% \\
+Asym.\ GARCH       &    0.00 & 0.20 & $-$0.72 &    0.16 & \textbf{0.19} & $-$0.83 & $-$7\%  \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} 500 Monte Carlo replications, $T = 200$. Bias and RMSE measure trend recovery against the known true trend. Skew is the average skewness of the extracted cycle across replications. $\Delta$RMSE $= (\text{RMSE}_{L1} - \text{RMSE}_{L2}) / \text{RMSE}_{L2}$. Bold indicates lower RMSE. L1-HP is solved via CVXPY using CLARABEL; replications where the solver fails to converge are dropped before averaging. Failure rates are below 1 percent on all DGPs reported here.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Table~\ref{tab:mc_results} reports trend recovery and cycle properties at default smoothing parameters. The plucking DGP produces the largest improvement: L1 reduces trend RMSE by 65 percent, from 0.82 to 0.29. The L2 trend bends downward through each censored recession, absorbing cyclical variation into what should be a straight line, and produces a cycle that appears more symmetric than the true one. The L1 trend stays near the capacity ceiling, assigns the full contraction to the cycle, and recovers a cycle skewness of $-1.53$, closer to the DGP's true value than L2's $-1.12$. Both filters underestimate the trend on this DGP because the censored cycle pulls the estimated trend below the true ceiling, but L1's bias ($-0.25$) is less than half of L2's ($-0.66$).
+
+The sharp crash and phase shift DGPs show RMSE reductions of 50 percent, but for a different reason. Both have deterministic linear trends, and the extracted cycle's skewness is near zero for both, because the improvement comes from the trend's functional form rather than from median targeting. The L2 filter bends its smooth trend through the cycle's peaks and troughs, absorbing cyclical variation into the trend even when the true trend is a straight line. The L1 filter produces a piecewise-linear trend that follows the true linear path more closely. The asymmetric GARCH DGP combines both mechanisms, since it has a deterministic trend and a negatively skewed cycle (L1 recovers skewness of $-0.83$, versus $-0.72$ under L2). The RMSE improvement is a modest 7\%, because the time-varying volatility makes the cycle's amplitude harder to separate from the trend regardless of the norm.
+
+The random walk and UC model expose the costs. On the random walk, which has no true cycle, L1 generates spurious cycles with RMSE more than double the L2 value. This is the efficiency cost of the median relative to the mean under symmetric distributions \citep{lehmann_casella1998}: the sample median has higher variance than the sample mean when the data are Gaussian, and the L1 filter inherits this property. The UC model imposes a much larger penalty. Its I(2) stochastic trend has curvature that the L1 filter at $\lambda = 600$ cannot accommodate, because L1's piecewise-linear structure forces most second differences of the trend to zero, while the DGP generates nonzero stochastic second differences at every period. The resulting RMSE of 15.01 versus L2's 2.38 is not primarily a lambda issue: even at the oracle $\lambda = 10$, L1's RMSE on this DGP exceeds L2's by roughly one-third (Table~\ref{tab:oracle_lambdas}). The standard HP filter approximates the optimal signal extraction for the UC model \citep{harvey_jaeger1993}, and L1 is the wrong tool when the true trend is smooth and stochastic.
+
+The results separate into two mechanisms. L1 improves when the cycle is negatively skewed, because median targeting does not pull the trend toward deep recessions (plucking, asymmetric GARCH). L1 also improves when the true trend is linear or piecewise-linear, because the filter's sparse trend structure matches the DGP (sharp crash, phase shift). L2 dominates when the trend is stochastic and smooth (UC model) or when the data are symmetric (random walk). Table~\ref{tab:mechanism_map} summarizes this taxonomy.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Mechanism taxonomy: when does the norm choice matter?}
+\label{tab:mechanism_map}
+\begin{tabular}{p{3.5cm} p{5.5cm} p{3.5cm}}
+\toprule
+Data feature & Mechanism & DGPs ($\Delta$RMSE) \\
+\midrule
+\multicolumn{3}{l}{\textit{L1-HP outperforms L2-HP}} \\[4pt]
+Negatively skewed cycle        & Median targeting: trend resists pull toward rare deep recessions & Stat.\ Plucking ($-65\%$), Asym.\ GARCH ($-7\%$) \\[6pt]
+Linear or piecewise-linear trend & L1 sparsity matches true trend structure                       & Sharp Crash ($-50\%$), Phase Shift ($-50\%$) \\[4pt]
+\midrule
+\multicolumn{3}{l}{\textit{L2-HP outperforms L1-HP}} \\[4pt]
+Smooth stochastic trend        & Piecewise-linear L1 cannot accommodate I(2) curvature          & UC Model ($+531\%$) \\[6pt]
+Symmetric innovations          & Higher variance of sample median vs.\ mean under symmetry      & Random Walk ($+106\%$) \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} $\Delta$RMSE $= (\text{RMSE}_{L1} - \text{RMSE}_{L2}) / \text{RMSE}_{L2}$ from Table~\ref{tab:mc_results}.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Appendix~\ref{app:hamilton} reports the same experiments for the Hamilton filter. Because the Hamilton filter defines the cycle as a regression residual rather than through a smoothness-penalized trend, the trend contamination channel (Property 2) is absent. The L1-Hamilton filter still targets the conditional median, but this alone produces only modest differences: RMSE gains are 3 percent or less on asymmetric DGPs, compared to 7 to 65 percent for the HP filter. On the sharp crash DGP, L1-Hamilton actually performs worse, with an 18 percent higher RMSE driven by the sawtooth pattern pulling LAD coefficients away from the OLS solution. The trend contamination mechanism is what drives most of the HP advantage.
+
+A natural question is whether an intermediate penalty, between L1 and L2, might combine the strengths of both. Appendix~\ref{app:lp_filter} explores the $L_p$-HP filter family for $p \in [1, 2]$ on the same DGPs. The oracle-optimal $p$ falls at one of the two endpoints for five of the six DGPs, and the single interior optimum ($p^* = 1.2$ on the sharp crash DGP) offers only a 7 percent RMSE gain over $p = 1$. The choice between L1 and L2 is fundamentally binary in these simulations.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SECTION 5: ASYMMETRY MECHANISMS AND FILTER CHOICE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Asymmetry Mechanisms and Filter Choice}
+\label{sec:structural}
+
+The statistical DGPs in Section~\ref{sec:montecarlo} reveal data features for which the norm choice matters in practice: negatively skewed cycles, piecewise-linear trends, and smooth versus stochastic trend structure. A natural follow-up asks whether these features arise from the mechanisms that the theoretical literature identifies as sources of business cycle asymmetry. We construct eight simulation environments, each built around a specific mechanism from the literature, and ask whether the L1/L2 distinction matters across different theoretical reasons why cycles might be asymmetric. The mechanisms span one-sided constraints (downward nominal wage rigidity in the plucking model of \citealt{dupraz_etal2020}), asymmetric amplification (credit constraints that bind sharply in downturns, as in \citealt{bernanke_etal1999}; large-firm exits in a granular economy, as in \citealt{gabaix2011}), heterogeneous marginal propensities to consume that amplify negative shocks (\citealt{kaplan_etal2018}), asymmetric shock propagation through production networks (\citealt{acemoglu_etal2012}), occasionally binding policy bounds (the zero lower bound of \citealt{eggertsson_woodford2003}), and endogenous volatility that depresses activity through real-options effects (\citealt{bloom2009}). Each simulation isolates one of these channels in a reduced-form dynamic environment calibrated to capture the qualitative asymmetry the cited framework predicts; the implementations are not numerical solutions of the original models, and Appendix~\ref{app:structural_specs} documents precisely what each specification captures and what it omits.
+
+The eighth simulation is a deliberate counterexample. In the hysteresis framework of \citet{blanchard_summers1986}, deep recessions permanently reduce potential output through capital scrapping, skill attrition, and reduced investment. The trend itself must shift downward during contractions rather than serve as a stable ceiling. This undermines the conditions under which L1's median-targeting advantage arises: if potential output falls after a severe recession, a filter calibrated to read persistent below-average output as a negative cycle gap will mischaracterize the permanently lower potential as ongoing slack, overstating the output gap precisely when the economy has recovered to its new, diminished capacity.
+
+Each environment is simulated for $T = 200$ periods with a 50-period burn-in to eliminate initialization effects, repeated across 50 independent replications. We apply the L2-HP filter at $\lambda = 1600$, the L1-HP filter at $\lambda = 600$, and both Hamilton variants at $h = 8$ and $p = 4$. Because each simulation defines potential output directly, filter performance can be measured against a known benchmark. The three metrics are trend RMSE against the true potential, cycle correlation between the extracted and true cycles, and cycle skewness, which captures whether the filter preserves the distributional asymmetry that motivates this exercise. Specifications, parameter choices, and simulation code are documented in Appendix~\ref{app:structural_specs}. Table~\ref{tab:structural_results} reports the results.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Filter performance across asymmetry mechanisms: HP filter trend recovery and cycle properties.}
+\label{tab:structural_results}
+\begin{tabular}{l rr r rr rr}
+\toprule
+& \multicolumn{2}{c}{RMSE} & & \multicolumn{2}{c}{Cycle Corr.} & \multicolumn{2}{c}{Cycle Skew} \\
+\cmidrule(lr){2-3} \cmidrule(lr){5-6} \cmidrule(lr){7-8}
+Mechanism & L2 & L1 & $\Delta$RMSE & L2 & L1 & L2 & L1 \\
+\midrule
+\multicolumn{8}{l}{\textit{Strong L1 advantage}} \\
+Plucking            & 0.001 & \textbf{0.000} &  $-68\%$ & 0.86 & \textbf{0.98} & $-1.31$ & $-1.70$ \\
+Granular            & 0.145 & \textbf{0.063} &  $-57\%$ & 0.87 & \textbf{0.98} & $-2.85$ & $-2.54$ \\
+Fin.\ Accelerator   & 1.361 & \textbf{0.710} &  $-48\%$ & 0.77 & \textbf{0.96} & $-0.01$ & $-0.20$ \\
+\midrule
+\multicolumn{8}{l}{\textit{Cycle shape}} \\
+Uncertainty Shocks  & 0.805 & \textbf{0.797} &   $-1\%$ & 0.61 & \textbf{0.92} & $-0.01$ & $-0.15$ \\
+\midrule
+\multicolumn{8}{l}{\textit{Mild advantage}} \\
+Network             & 0.028 & \textbf{0.027} &   $-6\%$ & 0.72 & \textbf{0.94} & $-0.06$ & $-0.13$ \\
+ZLB                 & 1.181 & \textbf{1.148} &   $-3\%$ & 0.27 & \textbf{0.52} & $-0.06$ & $-0.22$ \\
+\midrule
+\multicolumn{8}{l}{\textit{L2 outperforms}} \\
+HANK$^\ddagger$     & \textbf{0.024} & 0.032 & $+33\%$ & \multicolumn{2}{c}{---} & $+0.02$ & $-0.00$ \\
+Hysteresis          & \textbf{0.021} & 0.028 & $+33\%$ & \textbf{0.79} & 0.73 & $+0.03$ & $+0.05$ \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} 50 replications, $T = 200$, burn-in of 50 periods. RMSE measures trend recovery against the true potential. Cycle Corr.\ is the correlation between the extracted and true cycles. Bold indicates the better-performing filter on each metric. $\Delta$RMSE $= (\text{RMSE}_{L1} - \text{RMSE}_{L2}) / \text{RMSE}_{L2}$.
+\item $^\ddagger$ HANK cycle correlation omitted: potential is defined as the representative-agent counterfactual, making the true cycle a model-specific residual rather than a filter-interpretable object.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Three mechanisms produce large and consistent L1 improvements: the plucking model, the granular economy, and the financial accelerator. In each case the asymmetry involves sharp, infrequent negative departures from a stable potential, exactly the data feature that median targeting is designed to handle. On the plucking model, where every cyclical deviation is nonpositive by construction, L1 recovers the true trend with essentially zero RMSE and achieves a cycle correlation of 0.98; the L2 trend, pulled downward through each wage-rigidity contraction, cannot stay at the ceiling. The granular model delivers the largest improvement at 57 percent, reflecting the heavy-tailed distribution of firm-level shocks that L1 absorbs more faithfully. The financial accelerator shows a similar pattern: L1 reduces trend RMSE by 48 percent and the extracted cycle skewness shifts from $-0.01$ to $-0.20$, aligning with the asymmetric amplification the BGG mechanism predicts.
+
+The uncertainty shocks model occupies its own group in Table~\ref{tab:structural_results} under the label \textit{Cycle Shape}, pointing to cycle correlation rather than trend recovery as the relevant performance dimension. Both filters recover the trend with nearly identical RMSE, differing by less than 1 percent, but L1's cycle correlation of 0.92 substantially exceeds L2's 0.61. Bloom-type uncertainty episodes produce sharp, sudden drops in investment followed by slow recoveries as uncertainty gradually clears, an asymmetric pattern that median targeting preserves in the extracted cycle while mean targeting absorbs the deepest troughs into the trend, producing a cycle that understates the depth of the investment freeze. The norm choice is largely irrelevant for how close the trend sits to true potential but consequential for whether the extracted cycle reflects the episode's actual shape. The network and ZLB models sit in an intermediate range, with RMSE improvements of 6 and 3 percent and larger gains in cycle correlation. Production network linkages dampen expansions relative to contractions, and the ZLB constraint binds only during the deepest downturns; both generate moderate asymmetry in the true cycle, and L1 recovers that asymmetry more faithfully, most visibly in the ZLB model where L2 extracts a nearly symmetric cycle despite the constraint being one-sided.
+
+At the other end, HANK and hysteresis both favor L2. In the HANK model the amplification is spread across many small household adjustments rather than concentrated in a few sharp events, and the HANK cycle is close enough to symmetric that the norm choice barely matters. When potential itself drifts down after a recession, a filter that can track a moving trend outperforms one that reads persistent below-average output as a gap. L2's lower RMSE and higher cycle correlation in the hysteresis model are consistent with exactly this logic.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../output/figures/section_5/figure_structural_models.png}
+\caption{Filter comparison on four asymmetry mechanisms. Each panel shows the true cycle (solid black), L1-HP extracted cycle (dashed green, $\lambda=600$), and L2-HP extracted cycle (dotted red, $\lambda=1600$). Panels (a) and (b) show mechanisms where L1 outperforms; panel (c) shows a case where cycle correlation differs despite similar RMSE; panel (d) shows the hysteresis counterexample where L2 outperforms. Panels (a), (b), and (d) restrict the x-axis to the most informative window; the restricted period is noted on the horizontal axis.}
+\label{fig:structural_models}
+\end{figure}
+
+Figure~\ref{fig:structural_models} illustrates the filter comparison on four mechanisms that span the range of outcomes in Table~\ref{tab:structural_results}. In the plucking model (panel a), the true cycle is one-sided by construction, the L1 filter tracks this asymmetry closely, and the L2 cycle oscillates symmetrically around zero because L2 absorbs part of each contraction into the trend.\footnote{$\lambda = 600$ is close to the oracle-optimal L1 smoothing parameter for the plucking DGP (Table~\ref{tab:oracle_lambdas}), so the L1 advantage in panel (a) partly reflects a favorable calibration. The qualitative pattern holds across a wide range of $\lambda$ values.} In the financial accelerator (panel b), L1 recovers cycles that match the depth of the true contractions while L2 understates them, consistent with the 48 percent RMSE improvement in Table~\ref{tab:structural_results}. In the uncertainty shocks panel (c), both filters produce similarly smooth cycles, but the L1 cycle aligns more closely with the true cycle's asymmetric shape, the visual counterpart to the cycle correlation gap of 0.61 versus 0.92 in the table. In the hysteresis panel (d), the true cycle is roughly symmetric because the economy has recovered to its new lower potential, but the L1 filter reads the permanently lower output as ongoing slack, producing a false persistent gap that the L2 filter avoids.
+
+The simulations in this section are stylized by design, since each isolates a single asymmetry channel in the simplest dynamic environment that produces it. The mechanisms themselves, however, appear in mainstream accounts of the 2008 financial crisis, the slow recovery from the dot-com recession, and the COVID contraction. If any of them capture something real, the filter choice has direct consequences for what an economist sees. A researcher using L2-HP finds broadly symmetric cycles and a smooth trend that bends through each recession. A researcher using L1-HP finds asymmetric cycles with more negative skewness and a piecewise-linear trend with discrete breaks in growth, a picture that looks more like a succession of regime changes than a smooth long-run path. For the mechanisms where L1 performs better, this is not a coincidence. Potential holds near a ceiling during expansions and shifts discretely when large shocks arrive, a pattern that a piecewise-linear trend can accommodate and a smooth quadratic trend cannot. That is the picture these mechanisms imply. Both are internally consistent readings of the same data; they are not the same reading. Section~\ref{sec:empirical} applies both filters to U.S. macroeconomic data and examines where the difference matters.
+
+The Hamilton filter analogue of these experiments (Appendix~\ref{app:hamilton}) reinforces the pattern from the Monte Carlo exercise. On the plucking model, Hamilton-L1 and Hamilton-L2 produce nearly identical RMSE, in contrast to the large HP gap. On the financial accelerator model, Hamilton-L1 achieves a modest RMSE reduction (0.834 versus 0.861 for Hamilton-L2), but the gain is far smaller than the HP filter's 48 percent improvement. These results confirm that the L1 filter's advantage is specific to the HP framework, where the smoothness penalty creates a channel for trend contamination that the absolute-value penalty eliminates. As with the statistical DGPs, the $L_p$-HP filter at intermediate values of $p$ does not systematically outperform either endpoint on these mechanisms (Appendix~\ref{app:lp_filter}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SECTION 6: EMPIRICAL APPLICATION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Empirical Application}
+\label{sec:empirical}
+
+The central question is how much the two filters' answers differ when they meet real data, and whether the difference changes what we conclude about the economy. To explore this, we work through the main contexts in which trend-cycle decompositions appear in applied macroeconomics, such as measuring the U.S. output gap and benchmarking it against CBO estimates, estimating Taylor Rule coefficients and the Phillips Curve slope, forecasting inflation out of sample, and assessing real-time reliability across data vintages. We close by asking whether the U.S. patterns extend to the G7 countries and Australia.
+
+We begin with the application that inspired the HP filter, separating business cycles from trend growth in aggregate output. Figure~\ref{fig:gdp_cbo} plots the cycles extracted by both filters from U.S.\ Real GDP over the full sample, alongside the CBO's official output gap estimates and NBER recession dates. The filters agree during expansions, when the output gap is small regardless of which norm is used. The disagreement concentrates in recessions, where the L1 filter measures contractions as substantially deeper than the L2 filter does, and where the CBO's estimates tend to align more closely with the L1 reading.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../output/figures/section_6/figure_gdp_cbo.png}
+\caption{U.S. output gap estimates, 1960--2024. The CBO output gap (solid black) is compared against the L1-HP cycle (dashed green, $\lambda=600$) and L2-HP cycle (dotted red, $\lambda=1600$). All series expressed as percent of potential GDP. Grey shading indicates NBER recession dates.}
+\label{fig:gdp_cbo}
+\end{figure}
+
+The pattern in Figure~\ref{fig:gdp_cbo} is not simply that L1 is always closer to the CBO. At the 1982 trough, L1 measures a gap of $-7.3$ percent, nearly matching the CBO's $-6.9$ percent, while L2 registers only $-4.8$ percent. The COVID contraction is different: all three measures cluster closely, with CBO at $-9.0$ percent, L1 at $-9.8$ percent, and L2 at $-8.9$ percent. L2 is marginally closer to the CBO here, but both filters capture the depth of the contraction. Both of these episodes feature sharp, sudden contractions consistent with the plucking mechanism. The 2001 dot-com recession tells the opposite story, as L1 shows essentially no gap at the trough ($+0.3$ percent) while the CBO measures $-1.8$ percent and L2 measures $-1.2$ percent. A slow, shallow recession with a prolonged recovery does not generate the sharp negative observations that trigger L1's median-targeting advantage. For the 2008 Global Financial Crisis, both filters substantially understate the CBO gap ($-5.0$ percent) at the trough, with L1 and L2 both at $-2.6$ percent. The GFC built up slowly through financial stress and resolved in a drawn-out recovery, a pattern that neither filter reads as a sharp departure from potential.
+
+\begin{table}[htbp]
+\centering
+\caption{Output gap at NBER recession troughs, 1960--2020.}
+\label{tab:recession_troughs}
+\small
+\begin{threeparttable}
+\begin{tabular}{lc ccc ccc c}
+\toprule
+ & & \multicolumn{3}{c}{Pre-recession peak gap} & \multicolumn{3}{c}{Trough gap} & \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}
+Recession & Length & CBO & L1 & L2 & CBO & L1 & L2 & Recovery \\
+ & (qtrs) & (\%) & (\%) & (\%) & (\%) & (\%) & (\%) & (qtrs) \\
+\midrule
+1960--61   & 4  &  0.7 & $-$2.3 &  1.8 & $-$3.8 & $-$6.6 & $-$2.6 & 10 \\
+1969--70   & 5  &  2.3 &   4.3  &  1.0 & $-$2.5 & $-$0.9 & $-$3.3 &  5 \\
+1973--75   & 6  &  2.6 &   3.6  &  2.5 & $-$4.7 & $-$3.4 & $-$3.8 &  9 \\
+1980       & 3  &  0.6 &   2.3  &  2.3 & $-$3.0 & $-$1.9 & $-$1.2 & 29 \\
+1981--82   & 6  & $-$1.4 & $-$1.2  &  0.3 & $-$6.9 & $-$7.3 & $-$4.8 & 20 \\
+1990--91   & 3  &  0.8 &   1.5  &  1.4 & $-$2.5 & $-$2.2 & $-$1.6 & 15 \\
+2001       & 4  &  1.2 &   3.0  &  1.5 & $-$1.8 &   0.3  & $-$1.2 & 12 \\
+2007--09   & 8  &  1.4 &   4.6  &  2.0 & $-$5.0 & $-$2.6 & $-$2.6 & 34 \\
+2020       & 1  &  1.1 &   0.8  &  1.8 & $-$9.0 & $-$9.8 & $-$8.9 &  4 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Length is the number of quarters from the NBER peak to the CBO trough. Trough is defined as the quarter with the minimum CBO output gap within or up to two quarters after the NBER recession window. All three gaps (CBO, L1, L2) are reported at this same quarter. Pre-recession peak gap is the output gap in the quarter before the NBER peak. Recovery is the number of quarters from trough until the CBO output gap returns to zero. Gaps are in percentage points of potential GDP. L1-HP uses $\lambda=600$; L2-HP uses $\lambda=1600$.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Table~\ref{tab:recession_troughs} compares the three gap measures at each NBER trough since 1960, and the differences across filters follow a recognizable pattern. In deep recessions with clear structural breaks, the 1973--75 oil shock, the 1981--82 double-dip, and the 2007--09 financial crisis, the three measures broadly agree on the severity of the downturn, though L2 understates the trough by roughly one to two and a half percentage points relative to CBO. The more revealing disagreements arise in mild recessions. In 2001, L1 reports a positive output gap at the CBO trough ($+0.3$ percent), reflecting the filter's read that the episode involved sectoral rebalancing rather than an aggregate demand shortfall. In 1969--70, L1 measures a gap of only $-0.9$ percent versus the CBO's $-2.5$ percent, again suggesting a milder downturn than the conventional estimate implies. The pre-recession peak column tells a related story. Before the 2007--09 crisis, L1 places the economy roughly 5 percent above potential, nearly double the CBO estimate, capturing the credit and housing boom as an unusually elevated ceiling. Recovery length, measured as quarters until the CBO gap returns to zero, follows a different logic. The 29-quarter figure for 1980 spans both the 1980 recession and the 1981--82 recession; the two episodes together produced a gap that closed only in the mid-1980s expansion.
+
+Output gaps are not just descriptive measures of where the economy has been. They are direct inputs to monetary policy, entering the Taylor Rule as the real-time estimate of slack that guides interest rate decisions. To understand how the filter choice would affect the prescriptions that inform the FOMC, we apply the standard Taylor Rule ($i_t = r^* + \pi_t + 0.5(\pi_t - \pi^*) + 0.5 \cdot \text{gap}_t$, with $r^* = 2$ percent and $\pi^* = 2$ percent) using both L1 and L2 output gaps, and compare the implied policy rate against the actual federal funds rate during three episodes where monetary policy was most contested: the Volcker disinflation, the Global Financial Crisis, and the COVID contraction.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../output/figures/section_6/figure_taylor_rule.png}
+\caption{Taylor Rule prescriptions under L1 and L2 output gaps, 1960--2024. Top panel: output gaps from CBO (solid black), L1-HP (dashed green, $\lambda=600$), and L2-HP (dotted red, $\lambda=1600$). Bottom panel: actual federal funds rate (solid black) and Taylor Rule prescriptions using each gap measure. Grey shading indicates NBER recession dates.}
+\label{fig:taylor_rule}
+\end{figure}
+
+The two Taylor Rule prescriptions track the federal funds rate equally well over the full sample, with correlations of 0.73 for the L2 gap and 0.71 for the L1 gap. The aggregate similarity masks a shift across regimes. During the Volcker-Greenspan era, when monetary policy operated in a conventional stabilization framework, the L2 prescription is closer to actual policy (0.79 versus 0.76). After the Global Financial Crisis, the ranking reverses, and the L1 prescription correlates at 0.43 with the funds rate compared to 0.31 for L2. The post-GFC period is dominated by the zero lower bound and two deep asymmetric contractions, exactly the environment where the L1 gap measures a larger shortfall and the resulting prescription calls for more aggressive easing. The figure confirms this visually. During expansions, the two Taylor Rule lines sit on top of each other for years at a stretch. During recessions, the L1 prescription drops further below the L2 prescription, and in both the GFC and COVID episodes it goes more deeply negative, suggesting that the ZLB constraint was even more binding than the standard gap implies. The norm choice does not change the Taylor Rule during normal times, but it changes the policy prescription precisely when monetary policy is most consequential.
+
+The Phillips Curve provides a second test of what the norm choice means for applied macroeconomics. We estimate a standard backward-looking specification, $\pi_t = \alpha + \beta \cdot \text{gap}_t + \gamma \pi_{t-1} + \varepsilon_t$, using core CPI inflation and each filter's output gap over the full quarterly sample. Table~\ref{tab:phillips_curve} reports the results. Both filters explain inflation equally well, with $R^2$ values of 0.74 and 0.73, but the estimated slope differs by a factor of three: the L2 gap produces $\hat{\beta} = 0.231$, while the L1 gap produces $\hat{\beta} = 0.079$. The L1 Phillips Curve is substantially flatter. This is consistent with \citet{hazell_etal2022}, who use cross-state variation in unemployment to isolate the causal effect of slack on inflation and find a slope that is small and was small even during the early 1980s. Their argument is that aggregate time-series regressions confound the gap-inflation relationship with shifts in long-run inflation expectations, producing a slope that overstates the true sensitivity of inflation to slack. The L1 gap offers a complementary explanation for the same finding. Because it is near zero during expansions and large only during deep recessions, it does not covary with the slow-moving expectation shifts that drive much of the inflation variation in normal times. The resulting slope isolates the recession-specific component of the gap-inflation relationship, and that component is flat, in line with the cross-sectional estimates.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Phillips Curve estimates by filter.}
+\label{tab:phillips_curve}
+\begin{tabular}{l cc}
+\toprule
+ & L2-HP gap & L1-HP gap \\
+\midrule
+Gap coefficient ($\hat{\beta}$) & 0.231 & 0.079 \\
+ & (0.055) & (0.026) \\[4pt]
+Lagged inflation ($\hat{\gamma}$) & 0.844 & 0.831 \\[4pt]
+$R^2$ & 0.744 & 0.735 \\
+$N$ & 258 & 258 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Dependent variable is quarterly core CPI inflation. Newey-West HAC standard errors with 4 lags in parentheses. L2-HP uses $\lambda=1600$; L1-HP uses $\lambda=600$. Sample: 1960--2024.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+A natural follow-up asks whether the flatter L1 Phillips Curve translates into worse inflation forecasts. We run rolling-window out-of-sample forecasting exercises at horizons of 1, 4, and 8 quarters, using each filter's output gap as the sole predictor alongside lagged inflation, and compare against a naive forecast that uses only lagged inflation. The result is a null: L1 and L2 produce nearly identical root mean squared forecast errors across all three horizons and most sub-periods, typically differing only in the second decimal place. Over the full sample at the 4-quarter horizon, for instance, L1 achieves an RMSFE of 1.82 versus 1.82 for L2 and 1.85 for the naive benchmark. The norm choice affects the shape of the estimated gap and the slope of the Phillips Curve, but not the out-of-sample forecasting content of the gap for inflation. Appendix~\ref{app:empirical_additional} reports the full results by horizon and sub-period.
+
+The unemployment rate provides a second application where the filter choice has direct policy relevance. Applying L1 and L2 HP filters to the quarterly unemployment rate produces NAIRU estimates with fundamentally different properties. The L2-HP NAIRU tracks actual unemployment closely, with quarter-to-quarter volatility of 0.094 percentage points and a range spanning 3.7 to 8.4 percent. The L1-HP NAIRU is 7.6 times less volatile (0.012 pp/quarter) and compressed to a range of 4.3 to 6.5 percent, reflecting the piecewise-linear trend's tendency to change slope only at rare breakpoints. The practical consequence is that L1 classifies far more unemployment variation as cyclical: at the 2009-Q3 peak, L2 estimates 1.8 percentage points of cyclical slack because it had already raised NAIRU to 7.8 percent, while L1 holds NAIRU near 5.1 percent and measures 4.5 percentage points of slack. The subsequent recovery, in which unemployment fell steadily to 3.5 percent without significant wage-push inflation, is more consistent with the L1 reading that post-GFC unemployment was predominantly cyclical rather than structural.
+
+A recurring question in trend-cycle analysis is how much of a downturn reflects cyclical deviation versus a break in trend growth, a distinction that \citet{comin_gertler2006} emphasize in their work on medium-term business cycles. The 2001 recession offers a clean test case. Both filters detect a slowdown in trend GDP growth of roughly 0.9 percentage points between the late 1990s and early 2000s, consistent with the productivity deceleration documented by the contemporaneous literature. Yet the two filters disagree sharply on the cyclical component. The L2 filter records a negative output gap throughout 2001--2003, reaching $-2.1$ percent in 2003-Q1. The L1 filter shows a positive gap over the same period because its piecewise-linear trend absorbed the growth slowdown through a discrete slope change at 2001, leaving the cycle near zero. By 2001-Q4, the L2 gap is $-1.2$ percent while the L1 gap is $+0.3$ percent. The divergence illustrates a general property: when trend growth shifts, the L1 filter attributes the shift to the trend and the L2 filter attributes it partly to the cycle. Whether the 2001 slowdown was a cyclical contraction or a structural break is not something either filter can resolve on its own, but the L1 decomposition makes the question visible in a way that the smooth L2 trend does not.
+
+The Taylor Rule exercise assumes the output gap is known, but in practice policymakers observe only a real-time estimate that is revised as new data arrive. To assess how the norm choice affects this revision process, we apply both filters to 106 quarterly vintages of Real GDP from the ALFRED archive, spanning 2000 through 2024, and track how the end-of-sample gap estimate changes from one release to the next. L1 revisions are roughly 50 percent more volatile than L2, with a mean absolute revision of 0.74 percentage points versus 0.50 for L2 and a standard deviation of 1.57 versus 1.22. The mechanism is the piecewise-linear trend structure described in Section~\ref{sec:l1hp}: when new data shift the location of a trend knot, the entire end-of-sample gap can jump discretely, while L2's smooth trend absorbs new observations gradually. This is a genuine cost. The L1 filter measures recession depth more accurately in retrospect, as the CBO comparison and mechanism simulation results confirm, but it produces gap estimates that are less stable in real time. For applications where real-time reliability is essential, such as monetary policy deliberations at the data's trailing edge, the L2 filter's stability advantage is considerable. Appendix~\ref{app:empirical_additional} reports the full vintage-by-vintage revision series.
+
+The asymmetry that motivates the L1 filter is not a U.S.-specific phenomenon. Table~\ref{tab:international} applies both filters to quarterly real GDP from six of the seven G7 economies and Australia, using the same smoothing parameters throughout. Every country except Australia shows significantly negative cycle skewness under both filters, with t-statistics well below $-2$ in all cases. The magnitude varies: France and the United Kingdom show the strongest asymmetry, with L2 skewness below $-3.5$, while Japan and Germany are more moderate. Australia stands apart with cycle skewness indistinguishable from zero under either filter and the lowest L1-L2 correlation in the sample at 0.34, consistent with the random walk scenario from Section~\ref{sec:montecarlo} in which L1 generates spurious variation without improving cycle measurement. The L1-L2 correlation column indicates where the norm choice matters most in practice. In Germany and Japan the two filters agree closely (correlations above 0.84), suggesting the norm choice is largely irrelevant for those economies. In the United States, Canada, and Australia the correlation drops below 0.67, and the two filters tell substantially different stories about the business cycle.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{International cycle properties: G7 (excluding Italy) and Australia.}
+\label{tab:international}
+\begin{tabular}{l c rr rr c}
+\toprule
+ & & \multicolumn{2}{c}{Cycle skewness} & \multicolumn{2}{c}{Cycle volatility (\%)} & \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+Country & $N$ & L2 & L1 & L2 & L1 & L1-L2 Corr \\
+\midrule
+United States   & 260 & $-$1.00$^{*}$ & $-$1.16$^{*}$ & 1.51 & 3.30 & 0.58 \\
+United Kingdom  & 183 & $-$3.79$^{*}$ & $-$1.91$^{*}$ & 2.05 & 3.58 & 0.76 \\
+France          & 180 & $-$5.16$^{*}$ & $-$3.04$^{*}$ & 1.63 & 2.17 & 0.87 \\
+Germany         & 136 & $-$1.94$^{*}$ & $-$0.87$^{*}$ & 1.63 & 2.15 & 0.84 \\
+Japan           & 124 & $-$1.49$^{*}$ & $-$0.50$^{*}$ & 1.60 & 2.15 & 0.89 \\
+Canada          & 256 & $-$2.23$^{*}$ & $-$1.08$^{*}$ & 1.56 & 2.93 & 0.67 \\
+Australia       & 255 & $+$0.02       & $-$0.03       & 1.54 & 8.96 & 0.34 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} L2-HP uses $\lambda=1600$; L1-HP uses $\lambda=600$. Cycle volatility is the standard deviation of the extracted cycle in percentage points. $^{*}$ indicates skewness significantly different from zero at the 5 percent level ($|t| > 1.96$, where $\text{SE} = \sqrt{6/N}$). This standard error assumes independent observations; serial correlation in filtered cycles biases it downward, so the significance indicators should be interpreted as suggestive rather than exact. Sample periods vary by data availability; all series are quarterly real GDP from FRED.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+The empirical evidence in this section does not point uniformly toward one filter. L1 aligns more closely with CBO estimates during sharp recessions, produces Taylor Rule prescriptions that better track the federal funds rate in the post-GFC era, recovers a Phillips Curve slope consistent with the cross-sectional estimates of \citet{hazell_etal2022}, and generates a NAIRU that better anticipates the post-GFC recovery. L2 produces more stable real-time estimates and fits the continuous symmetric relationships that dominate most applied macroeconomic work more efficiently when cycles are symmetric. The inflation forecasting null suggests that these differences in gap shape do not translate into differences in predictive content for inflation. The dot-com episode illustrates a subtler distinction: when trend growth shifts, the two filters disagree not on magnitude but on whether the shift belongs in the trend or the cycle. The international evidence confirms that the asymmetry motivating L1 is not a U.S.-specific artifact but a feature of business cycles across developed economies, with Australia as a clean counterexample where symmetric cycles render the norm choice irrelevant. The pattern that emerges is not that one filter is uniformly better, but that the two filters measure different objects. L2 captures smooth, continuous cyclical variation; L1 captures the depth and asymmetry of recessions. Which object matters depends on the question being asked.
+
+Appendix~\ref{app:empirical_additional} reports the Hamilton filter analogue of each empirical exercise. The results confirm the theoretical prediction from Appendix~\ref{app:hamilton}: without the trend contamination channel, the choice between L1 and L2 has little empirical consequence. Hamilton-L1 and Hamilton-L2 Taylor Rule prescriptions correlate with the federal funds rate at 0.69 and 0.70, respectively, and Phillips Curve slopes are nearly identical (0.054 versus 0.055). Inflation forecasting RMSFE and international skewness patterns are also indistinguishable across norms. The Hamilton filter comparison serves as a placebo test: it isolates the median-targeting channel and shows that, by itself, it produces only minor differences. The large L1 versus L2 gaps documented throughout this section are driven primarily by trend contamination.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SECTION 7: CONCLUSION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+Standard trend-cycle decompositions treat expansions and contractions symmetrically. This paper replaces the L2 penalty in the Hodrick-Prescott filter with an L1 penalty, producing a filter that targets the conditional median rather than the conditional mean. Three consequences follow from this substitution. The extracted trend resists contamination by large transitory shocks, the trend path is piecewise linear rather than smooth, and the resulting cycles are deeper in recessions but similar during expansions. Monte Carlo experiments across six data-generating processes confirm that these properties translate into lower cycle RMSE when the true DGP is asymmetric, with gains concentrated in the contraction phase. Simulations built around specific asymmetry mechanisms, including plucking, financial accelerator, uncertainty shock, and hysteresis specifications, reinforce this finding in economically motivated settings.
+
+The empirical application to US real GDP illustrates these differences in practice. The L1 cycle is deeper in most postwar recessions, and at the 1981--82 trough it reaches $-7.3$ percent of potential, nearly matching the CBO's $-6.9$ percent, while the L2 filter registers only $-4.8$ percent. L2 understates the trough relative to the CBO in eight of the nine postwar recessions, though L1 is not systematically closer to the CBO across all episodes. These measurement differences carry policy implications. Taylor Rule prescriptions based on L1 gaps track the actual federal funds rate about as well as L2-based prescriptions during normal times, but diverge substantially during and after deep recessions, when the L1 filter measures a larger output gap and therefore prescribes more aggressive easing. The L1 cycle also implies a flatter Phillips Curve, consistent with recent cross-state evidence in \citet{hazell_etal2022}, suggesting that part of the apparent slope in conventional estimates reflects the symmetric filter's tendency to understate recessionary gaps. Asymmetric business cycles are not specific to the United States: skewness tests reject symmetry for most G7 economies, though the strength of asymmetry varies across countries.
+
+These results come with important caveats. The L1 filter's piecewise-linear trend produces larger real-time revisions than the standard HP filter, roughly 50 percent higher mean absolute revision in pseudo-real-time exercises using ALFRED vintages. Sparse trend-growth knots shift as new observations arrive, making the L1 cycle less stable at the endpoint. The filter also generates higher-variance spurious cycles on pure random walks, so it should not be applied indiscriminately to series without theoretical reason to expect asymmetry. Formal asymptotic properties remain unestablished: our convergence evidence is empirical rather than analytical, and bootstrap confidence intervals provide reliable coverage for the cycle but not for the trend. Lambda selection for the L1 filter also lacks a principled criterion; cross-validation optimizes for prediction rather than cycle extraction, and information criteria require degrees-of-freedom formulas not yet available for the L1-HP penalty.
+
+Several directions remain open. First, the L1-HP filter lacks the asymptotic theory available for its L2 counterpart. Establishing consistency conditions and deriving the rate of convergence for the L1 trend, building on results for L1 trend filtering in \citet{kim_etal2009} and \citet{tibshirani2014}, would place the filter on firmer inferential ground. Second, the L1 and L2 penalties are endpoints of a broader $L_p$ family, where intermediate values of $p$ offer a continuum between robustness and smoothness. Appendix~\ref{app:lp_filter} explores this direction briefly; a systematic treatment of the $L_p$-HP filter, including data-driven selection of $p$, is a natural next step. Third, the piecewise-linear structure of the L1 trend suggests a connection to structural break detection in trend growth. Each knot in the L1 trend marks a discrete change in the growth rate, and the locations of these knots could complement formal break-testing procedures such as \citet{bai_perron1998}. Whether the L1 filter can reliably identify trend breaks, rather than merely accommodate them, remains to be investigated. Fourth, our simulations use linear or slowly drifting trends; how L1 and L2 filters compare when the true trend is nonlinear or subject to regime changes in growth remains underexplored. Time-varying trend specifications, such as those arising from Markov-switching or smooth-transition models, would provide a richer testbed for evaluating robustness gains. Fifth, the symmetry assumption is not unique to the HP filter. Band-pass filters in the tradition of \citet{baxter_king1999} project the data onto symmetric basis functions (sines and cosines) that represent expansions and contractions as mirror images of each other. A one-sided recession cannot be represented compactly in this basis without combining many frequency components, raising the question of whether an asymmetric basis, for instance one that separates the positive and negative phases of each oscillation, could improve cycle extraction on skewed data. The difficulty is that the positive and negative parts of a sine wave are not orthogonal over a full period, so the standard frequency-domain interpretation breaks down and the resulting filter would require regularization to remain well-conditioned. Whether this trade-off is worthwhile is an open question.
+
+The contribution of this paper is not to argue that L1 should replace L2 as the default penalty in trend-cycle decompositions. Rather, it is to demonstrate that the L2 penalty embeds a substantive assumption, symmetric cycle distributions, that practitioners often adopt without interrogation. When this assumption fails, as it does for most macroeconomic aggregates, the resulting cycles understate recessions, overstate recoveries, and distort the policy measures built on them. The L1 filter is one way to relax this assumption, and a particularly transparent one, but it is not the only way. Mollified penalties, asymmetric loss functions, and regime-switching trend specifications could all serve similar purposes. Alternatively, the Hamilton filter sidesteps the problem altogether: because it defines the cycle as a regression residual rather than through a smoothness-penalized trend, the L1-versus-L2 distinction has almost no empirical consequence, a finding that may itself recommend the regression-based approach. The broader point is that no filter is agnostic: every penalty function encodes a view about the shape of the business cycle, and researchers should choose that view deliberately rather than by convention.
+
+\newpage
+
+\bibliographystyle{ecta}
+\bibliography{references}
+
+\newpage
+\appendix
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% APPENDIX A: L1-HAMILTON FILTER
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{L1-Hamilton Filter}
+\label{app:hamilton}
+
+The three properties developed for the L1-HP filter in Section~\ref{sec:l1hp} do not all carry over to the Hamilton framework. Property~1 (median targeting) transfers directly: replacing OLS with LAD means the Hamilton filter targets the conditional median of $y_{t+h}$ given past values rather than the conditional mean. When forecast errors are negatively skewed, as they are when recessions produce large negative residuals, the conditional median sits above the conditional mean. The L1 fitted values during expansions are closer to the data, and the L1 residuals during recessions are larger in absolute value, producing deeper measured contractions.
+
+Property~2 (trend contamination) does not apply. The HP filter defines the trend through a smoothness-penalized optimization. The L2 penalty creates incentive to bend the trend toward extreme observations, since the larger the gap between data and trend, the larger the squared penalty and the cheaper it is to pull the trend toward the outlier. The Hamilton filter defines the cycle as a regression residual. There is no smoothness penalty, no trend to bend, and no mechanism through which a deep recession can shift the fitted values away from their regression-implied path. Because trend contamination is the channel through which the L1-HP filter achieves its largest gains (Section~\ref{sec:montecarlo}), L1-Hamilton versus L2-Hamilton differences are systematically smaller than their HP counterparts.
+
+Property~3 (capacity ceiling) applies in a weaker form. When forecast errors are negatively skewed, the LAD fitted value sits above the OLS fitted value, and the implicit Hamilton ``trend'' is closer to the upper envelope of the series. But the Hamilton trend is a linear function of lagged observations with fixed coefficients, and it cannot produce the piecewise-linear ceiling that the L1-HP filter generates. The ceiling effect operates through the level of the forecast, not through the trend's functional form.
+
+The choice of forecast horizon $h$ and lag order $p$ does not depend on the norm. \citet{hamilton2018} recommends $h = 8$ quarters and $p = 4$ lags for quarterly data, chosen so that the regression residual isolates business-cycle-frequency variation. These parameters govern which frequencies are labeled ``trend'' versus ``cycle,'' and that choice is the same whether the regression targets the conditional mean or the conditional median. We use $h = 8$ and $p = 4$ throughout.
+
+For inference, the L1-Hamilton filter inherits the established asymptotic theory of LAD regression \citep{koenker2005}. The estimator is $\sqrt{T}$-consistent and asymptotically normal, with a covariance matrix that depends on the density of the error distribution at zero. Standard HAC-robust confidence intervals apply without modification. This contrasts with the L1-HP filter, for which no formal asymptotic theory currently exists and inference relies on the block bootstrap described in Section~\ref{sec:inference}.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Monte Carlo results: Hamilton filter trend recovery and cycle properties.}
+\label{tab:mc_hamilton}
+\begin{tabular}{l rrr rrr r}
+\toprule
+& \multicolumn{3}{c}{Hamilton-L2} & \multicolumn{3}{c}{Hamilton-L1} & \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+DGP & Bias & RMSE & Skew & Bias & RMSE & Skew & $\Delta$RMSE \\
+\midrule
+Random Walk        &    0.00 & \textbf{2.57} &    0.00 &    0.00 & 2.60 &    0.00 & $+$1\%  \\
+UC Model           &    0.00 & \textbf{6.99} & $-$0.01 &    0.01 & 7.07 & $-$0.01 & $+$1\%  \\
+Phase Shift        & $-$0.18 & \textbf{4.39} &    0.03 & $-$0.20 & 4.39 &    0.03 &    0\%  \\
+\midrule
+Stat.\ Plucking   & $-$0.67 & 1.04 & $-$0.36 & $-$0.60 & \textbf{1.00} & $-$0.33 & $-$3\%  \\
+Sharp Crash        &    0.23 & \textbf{2.66} & $-$2.21 &    1.47 & 3.14 & $-$2.25 & $+$18\% \\
+Asym.\ GARCH       &    0.00 & \textbf{0.51} & $-$0.48 &    0.11 & 0.53 & $-$0.48 & $+$6\%  \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Same simulation design as Table~\ref{tab:mc_results}: 500 replications, $T = 200$, $h = 8$, $p = 4$. $\Delta$RMSE $= (\text{RMSE}_{L1} - \text{RMSE}_{L2}) / \text{RMSE}_{L2}$. Bold indicates lower RMSE.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Table~\ref{tab:mc_hamilton} reports the Hamilton filter analogue of Table~\ref{tab:mc_results}. The differences between L1 and L2 are an order of magnitude smaller than for the HP filter. L1-Hamilton wins only on the plucking DGP, with a 3 percent RMSE reduction compared to 65 percent for the HP filter. On the sharp crash DGP, L1-Hamilton loses by 18 percent: the sawtooth pattern generates large negative forecast errors that pull the LAD coefficients away from the OLS solution, inflating the L1 bias to 1.47 versus L2's 0.23. On the remaining four DGPs, the two norms produce nearly identical results. This pattern confirms that the trend contamination mechanism described in Property~2 is what drives most of the HP advantage: when it is absent, the median-targeting channel alone produces only modest differences.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Hamilton filter: cycle recovery across asymmetry mechanisms.}
+\label{tab:structural_hamilton}
+\begin{tabular}{l rr rr}
+\toprule
+& \multicolumn{2}{c}{Hamilton-L2} & \multicolumn{2}{c}{Hamilton-L1} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5}
+Mechanism & Bias & RMSE & Bias & RMSE \\
+\midrule
+Plucking       & $-$0.001 & 0.002 & $-$0.001 & 0.002 \\
+Granular       &    0.010 & \textbf{0.182} &    0.017 & 0.193 \\
+Fin.\ Accel.   & $-$0.485 & 0.861 & $-$0.387 & 0.834 \\
+Unc.\ Shocks   & $-$0.798 & 0.807 & $-$0.795 & 0.803 \\
+Network        & $-$0.027 & 0.030 & $-$0.026 & 0.029 \\
+ZLB            & $-$0.987 & 1.206 & $-$0.985 & 1.205 \\
+HANK           & $-$0.000 & 0.040 & $-$0.000 & 0.041 \\
+Hysteresis     &    0.000 & 0.024 &    0.003 & 0.025 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Same asymmetry mechanisms as Table~\ref{tab:structural_results}. Hamilton filter with $h = 8$, $p = 4$. Bold indicates lower RMSE where the difference exceeds 5 percent.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Table~\ref{tab:structural_hamilton} extends the comparison to the asymmetry mechanisms from Section~\ref{sec:structural}. No model shows an L1 RMSE reduction exceeding 5 percent. The financial accelerator produces the largest L1 gain at 3 percent, negligible compared with the 48 percent HP improvement. On the granular model, where HP-L1 cuts RMSE by 57 percent, Hamilton-L2 is slightly more accurate. On the remaining models, the two norms produce nearly identical results.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% APPENDIX B: ROBUSTNESS CHECKS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Robustness Checks}
+\label{app:robustness}
+
+\subsection{Lambda Sensitivity}
+\label{app:lambda_sensitivity}
+
+The Monte Carlo results in Section~\ref{sec:montecarlo} compare HP-L1 at $\lambda = 600$ against HP-L2 at $\lambda = 1600$. Table~\ref{tab:lambda_sweep} evaluates whether the comparison depends on this particular pairing by reporting L1-HP trend RMSE at four values of $\lambda$ spanning the range from 600 to 2000, with the L2 benchmark held fixed at $\lambda = 1600$.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{L1-HP trend RMSE across $\lambda$ values.}
+\label{tab:lambda_sweep}
+\begin{tabular}{l r rrrr}
+\toprule
+& HP-L2 & \multicolumn{4}{c}{HP-L1} \\
+\cmidrule(lr){2-2} \cmidrule(lr){3-6}
+DGP & $\lambda = 1600$ & $\lambda = 600$ & $\lambda = 1000$ & $\lambda = 1600$ & $\lambda = 2000$ \\
+\midrule
+Random Walk     & \textbf{1.26} &  2.61 &  2.92 &  3.28 &  3.47 \\
+UC Model        & \textbf{2.38} & 15.01 & 22.73 & 32.85 & 40.55 \\
+Phase Shift     &  2.05 & \textbf{1.01} & \textbf{1.01} & \textbf{1.01} & \textbf{1.01} \\
+\midrule
+Stat.\ Plucking &  0.82 & \textbf{0.29} & \textbf{0.27} & \textbf{0.27} & \textbf{0.27} \\
+Sharp Crash     &  2.02 & \textbf{1.00} & \textbf{1.00} & \textbf{1.00} & \textbf{1.00} \\
+Asym.\ GARCH    &  0.20 & \textbf{0.19} & \textbf{0.19} & \textbf{0.19} & \textbf{0.19} \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} 500 Monte Carlo replications, $T = 200$. Bold indicates lower RMSE than the HP-L2 benchmark.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+The ranking between L1 and L2 is unchanged at every lambda value. L1 outperforms on the same four DGPs (plucking, sharp crash, phase shift, and asymmetric GARCH), and L2 outperforms on the same two (random walk and UC model). On the DGPs where L1 wins, RMSE is nearly flat across the entire range: the plucking value varies from 0.29 to 0.27, and the sharp crash and phase shift RMSEs are effectively constant. The two symmetric DGPs respond differently. L1 performance on the random walk degrades from 2.61 to 3.47 as $\lambda$ rises, and on the UC model the deterioration is severe, from 15.01 to 40.55. Higher $\lambda$ forces more second differences of the L1 trend to zero, making it increasingly piecewise-linear. For DGPs whose true trend has stochastic curvature, this rigidity is progressively costly; for DGPs with linear or piecewise-linear true trends, the constraint is harmless. The norm choice, not the lambda value, determines which filter is appropriate for a given series.
+
+\subsection{Bootstrap Coverage}
+\label{app:bootstrap_coverage}
+
+Table~\ref{tab:bootstrap_coverage} reports empirical coverage of the block bootstrap described in Section~\ref{sec:inference} at the 90 percent nominal level, based on 200 simulations with 200 bootstrap replications each.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Bootstrap coverage at 90\% nominal level.}
+\label{tab:bootstrap_coverage}
+\begin{tabular}{l rr r}
+\toprule
+DGP & Trend & Cycle & Avg.\ Width \\
+\midrule
+UC Model        & 0.449 & 0.966 & 21.51 \\
+Stat.\ Plucking & 0.260 & 0.888 &  0.57 \\
+Sharp Crash     & 0.866 & 0.789 &  4.19 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} 200 simulations, $T = 200$, 200 bootstrap replications each. Coverage is the fraction of time periods where the true value falls within the 90\% bootstrap percentile interval. Width is the average interval width in the units of the series.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Cycle coverage meets or exceeds the nominal level on the UC model (96.6\%) and falls slightly short on the plucking DGP (88.8\%). The sharp crash DGP produces cycle coverage of 78.9\%, because its discrete trend breaks generate an irregular cycle distribution that the block bootstrap approximates less well. Trend coverage is poor across all three DGPs, ranging from 26.0\% on plucking to 44.9\% on the UC model, with the sharp crash DGP as a partial exception at 86.6\%. The L1 trend's piecewise-linear structure creates discrete knot points whose locations shift across bootstrap replications, producing a multimodal sampling distribution that percentile-based intervals cannot capture. This pattern is consistent with the known difficulties of bootstrapping non-smooth estimators. \citet{knight1998} showed that the limiting distribution of LAD-type estimators depends on the density of the error distribution at zero, and the standard bootstrap does not replicate this feature. Cycle inference from the L1 filter is reliable; trend inference is not, and we view developing a valid trend inference procedure as an open problem.
+
+\subsection{Mollified Filters}
+\label{app:mollified}
+
+The L1 and L2 norms are two endpoints of a continuous family of loss functions. Two intermediate filters illustrate this range. The Huber-HP filter replaces the L1 smoothness penalty with the Huber loss \citep{huber1964}:
+\begin{equation}
+\label{eq:huber_hp}
+\min_\tau \sum_{t=1}^T |y_t - \tau_t| + \lambda \sum_{t=2}^{T-1} H_\delta(\Delta^2 \tau_t), \quad H_\delta(x) = \begin{cases} x^2/2 & \text{if } |x| \leq \delta \\ \delta(|x| - \delta/2) & \text{if } |x| > \delta \end{cases}
+\end{equation}
+The Huber loss penalizes small trend-growth changes quadratically and large ones linearly, so the threshold $\delta$ governs whether a given change in trend growth is treated as ordinary curvature or a structural break. The fit term remains the L1 norm, preserving median targeting. As $\delta \to 0$ the filter approaches L1-HP; as $\delta \to \infty$ it approaches an L1-fit, L2-smoothness hybrid.
+
+The Elastic-HP filter applies an elastic net penalty \citep{zou_hastie2005} to the smoothness term:
+\begin{equation}
+\label{eq:elastic_hp}
+\min_\tau \sum_{t=1}^T |y_t - \tau_t| + \lambda \left[\alpha \sum_{t=2}^{T-1} |\Delta^2 \tau_t| + (1 - \alpha) \sum_{t=2}^{T-1} (\Delta^2 \tau_t)^2 \right]
+\end{equation}
+The mixing parameter $\alpha$ interpolates between L1 smoothness ($\alpha = 1$, identical to L1-HP) and L2 smoothness ($\alpha = 0$). Both filters are convex and solved with the same optimization tools as the L1-HP filter.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Mollified filter results on two data-generating processes.}
+\label{tab:mollified}
+\begin{tabular}{l rrr rrr}
+\toprule
+& \multicolumn{3}{c}{Plucking} & \multicolumn{3}{c}{Fat-Tailed RW} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+Filter & Bias & RMSE & Skew & Bias & RMSE & Skew \\
+\midrule
+HP-L2                    & $-$0.60 & 0.72 & $-$1.31 &    0.00 & \textbf{2.04} & $-$0.01 \\
+Huber-HP ($\delta = 1$)  & $-$0.36 & 0.50 & $-$1.55 & $-$0.02 & 2.47 & $-$0.01 \\
+Elastic-HP ($\alpha = 0.5$) & $-$0.24 & 0.27 & $-$1.63 & $-$0.10 & 3.72 &    0.06 \\
+HP-L1                    & $-$0.24 & \textbf{0.27} & $-$1.63 & $-$0.10 & 3.72 &    0.06 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} 100 Monte Carlo replications, $T = 100$, $\lambda = 600$ for all L1-fit filters, $\lambda = 1600$ for HP-L2. The fat-tailed random walk uses Student-$t(3)$ innovations. Bold indicates lowest RMSE within each DGP.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Table~\ref{tab:mollified} reports results on two DGPs: the plucking model, where L1 outperforms L2, and a fat-tailed random walk with Student-$t(3)$ innovations, where L2 outperforms. The Huber-HP filter sits between L1 and L2 on both DGPs. On plucking, its RMSE of 0.50 falls between L2's 0.72 and L1's 0.27; on the fat-tailed random walk, its RMSE of 2.47 falls between L2's 2.04 and L1's 3.72. The Elastic-HP filter at $\alpha = 0.5$, by contrast, produces results virtually identical to L1-HP on both DGPs.
+
+The distinction reveals which component of the norm choice shapes the trend. Both mollified filters use the L1 norm for the fit term, so all three L1-fit variants target the conditional median. Where they differ is the smoothness penalty. The Elastic-HP retains enough L1 weight in its smoothness term to produce the same sparsity pattern as full L1-HP, zeroing out most second differences and generating a piecewise-linear trend. The Huber penalty treats small second differences quadratically, preventing them from being driven to exactly zero, and the resulting trend has more curvature than the L1 trend while remaining robust to large breaks. A full characterization of the Lp family, including data-driven selection of the norm, is left for future work.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% APPENDIX C: THE Lp-HP FILTER FAMILY
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{The $L_p$-HP Filter Family}
+\label{app:lp_filter}
+
+The L1 and L2 penalties are the endpoints of a broader family indexed by $p \in [1, 2]$. The $L_p$-HP filter solves
+\begin{equation}
+\min_{\tau} \sum_{t=1}^{T} |y_t - \tau_t|^p + \lambda \sum_{t=2}^{T-1} |\Delta^2 \tau_t|^p,
+\label{eq:lp_hp}
+\end{equation}
+where both the fit and smoothness penalties use the same $p$-norm. At $p = 1$ this reduces to the L1-HP filter of Section~\ref{sec:l1hp}; at $p = 2$ it reduces to the standard HP filter. Intermediate values of $p$ interpolate between the two: as $p$ decreases from 2 toward 1, the filter becomes more robust to outliers (the fit term downweights large residuals) and the trend becomes progressively more piecewise-linear (the smoothness term drives more second differences toward zero).
+
+We ask whether some intermediate $p$ can outperform both endpoints. To answer this, we run a joint grid search over $p \in \{1.0, 1.2, 1.4, 1.5, 1.6, 1.8, 2.0\}$ and $\lambda \in \{100, 200, 400, 600, 800, 1000, 1200, 1600, 2000, 2500\}$ on six DGPs from Section~\ref{sec:montecarlo} (random walk, UC model, skewed UC, asymmetric random walk, statistical plucking, and sharp crash) and the four asymmetry mechanisms for which the signal is cleanest. For each $(p, \lambda)$ pair we compute the mean cycle RMSE across replications and report the oracle-optimal combination $(p^*, \lambda^*)$.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Oracle-optimal $(p^*, \lambda^*)$ for the $L_p$-HP filter.}
+\label{tab:lp_results}
+\begin{tabular}{l rr r rr rr}
+\toprule
+& \multicolumn{3}{c}{Oracle optimum} & \multicolumn{2}{c}{$p = 1$ best} & \multicolumn{2}{c}{$p = 2$ best} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8}
+& $p^*$ & $\lambda^*$ & RMSE$^*$ & $\lambda$ & RMSE & $\lambda$ & RMSE \\
+\midrule
+\multicolumn{8}{l}{\textit{Statistical DGPs}} \\
+Stat.\ Plucking  & 1.0 & 2500 & 0.243 & 2500 & 0.243 & 2500 & 0.768 \\
+Random Walk      & 2.0 & 100  & 0.894 & 100  & 1.731 & 100  & 0.894 \\
+UC Model         & 2.0 & 100  & 0.947 & 100  & 3.806 & 100  & 0.947 \\
+Sharp Crash      & 1.2 & 1600 & 0.929 & 2000 & 0.997 & 2500 & 1.893 \\
+Skewed UC        & 2.0 & 100  & 0.884 & 100  & 3.747 & 100  & 0.884 \\
+Asym.\ RW        & 2.0 & 100  & 0.558 & 100  & 1.066 & 100  & 0.558 \\
+\midrule
+\multicolumn{8}{l}{\textit{Asymmetry mechanisms}} \\
+Plucking         & 1.0 & 2000 & 0.001 & 2000 & 0.001 & 2500 & 0.002 \\
+Fin.\ Accelerator & 1.0 & 2500 & 0.696 & 2500 & 0.696 & 2500 & 1.335 \\
+Uncertainty      & 1.0 & 400  & 0.795 & 400  & 0.795 & 2500 & 0.803 \\
+Hysteresis       & 1.8 & 2000 & 0.020 & 100  & 0.022 & 2500 & 0.020 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Grid search over $p \in \{1.0, 1.2, 1.4, 1.5, 1.6, 1.8, 2.0\}$ and $\lambda \in \{100, 200, \ldots, 2500\}$. DGPs use $T = 200$, 50 replications; asymmetry mechanisms use $T = 200$, 20 replications. RMSE measures trend recovery against the known true trend.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+Table~\ref{tab:lp_results} reports the results. For eight of the ten cases, the oracle-optimal $p$ falls at one of the two endpoints. Asymmetric DGPs and models select $p^* = 1$; symmetric or trend-dominated DGPs select $p^* = 2$. The choice is binary even after jointly optimizing $\lambda$.
+
+Two cases produce interior optima. The sharp crash DGP selects $p^* = 1.2$ at $\lambda^* = 1600$, achieving an RMSE of 0.929 versus 0.997 at $p = 1$ (a 7 percent gain) and 1.893 at $p = 2$ (a 51 percent gain). This DGP generates rare, deep drops followed by V-shaped recoveries, where the pure L1 trend overshoots through the recovery with its piecewise-linear structure, while a slight quadratic correction at $p = 1.2$ smooths the recovery without losing robustness to the crash. The hysteresis model selects $p^* = 1.8$ at $\lambda^* = 2000$, but the gain over $p = 2$ is negligible (0.020 versus 0.020, a 1 percent difference).
+
+A secondary finding concerns the smoothing parameter. The optimal $\lambda$ varies substantially with $p$. At $p = 2$, the standard $\lambda = 1600$ is not oracle-optimal for any symmetric DGP in this experiment; the grid search selects $\lambda = 100$ for the random walk, UC model, and asymmetric random walk. At $p = 1$, the optimal $\lambda$ tends to be higher, reflecting the need for more aggressive smoothing to compensate for the L1 penalty's sparsity. This suggests that practitioners using any $L_p$-HP filter should tune $\lambda$ jointly with $p$ rather than relying on conventional defaults.
+
+The overall message is that the L1-versus-L2 choice is the first-order decision. Intermediate values of $p$ offer marginal gains in special cases but do not provide a general improvement over the two endpoints. Whether data-driven selection of $p$ can identify the right norm without oracle knowledge of the DGP remains an open question.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% APPENDIX D: ADDITIONAL EMPIRICAL RESULTS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Additional Empirical Results}
+\label{app:empirical_additional}
+
+\subsection{Hamilton Filter Empirical Results}
+\label{app:hamilton_empirical}
+
+Tables~\ref{tab:hamilton_taylor}--\ref{tab:hamilton_international} report the Hamilton filter analogue of each empirical exercise in Section~\ref{sec:empirical}. The results confirm the prediction from Appendix~\ref{app:hamilton}: without the trend contamination channel, the L1 versus L2 distinction has little empirical consequence.
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Taylor Rule correlations with the federal funds rate: HP versus Hamilton.}
+\label{tab:hamilton_taylor}
+\begin{tabular}{l rrrr}
+\toprule
+Period & HP-L2 & HP-L1 & Ham-L2 & Ham-L1 \\
+\midrule
+Full sample            & 0.73 & 0.71 & 0.70 & 0.69 \\
+Pre-Volcker (1963--79) & 0.86 & 0.85 & 0.84 & 0.83 \\
+Volcker--Greenspan (1980--2000) & 0.79 & 0.76 & 0.71 & 0.71 \\
+Post-GFC (2010--24)    & 0.31 & 0.43 & 0.37 & 0.33 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Correlation between actual federal funds rate and Taylor Rule prescription $i_t = r^* + \pi_t + 0.5(\pi_t - \pi^*) + 0.5 \cdot \text{gap}_t$ with $r^* = \pi^* = 2$ percent. HP-L2 uses $\lambda = 1600$; HP-L1 uses $\lambda = 600$; Hamilton uses $h = 8$, $p = 4$.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Phillips Curve estimates: HP versus Hamilton.}
+\label{tab:hamilton_phillips}
+\begin{tabular}{l rrrr}
+\toprule
+& HP-L2 & HP-L1 & Ham-L2 & Ham-L1 \\
+\midrule
+$\hat{\beta}$ (gap slope) & 0.237 & 0.098 & 0.055 & 0.054 \\
+SE($\hat{\beta}$)         & 0.055 & 0.032 & 0.027 & 0.027 \\
+$\hat{\gamma}$ (persistence) & 0.844 & 0.846 & 0.863 & 0.864 \\
+$R^2$                     & 0.741 & 0.731 & 0.725 & 0.725 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Estimates of $\pi_t = \alpha + \beta \cdot \text{gap}_t + \gamma \pi_{t-1} + \varepsilon_t$. Core CPI inflation (CPILFESL), quarterly, 1960--2024. $N = 248$. Standard errors use Newey-West HAC with 4 lags. All filters are evaluated on the Hamilton-available sample, which is shorter than the HP-only sample ($N = 258$) used in Table~\ref{tab:phillips_curve}; HP coefficients therefore differ slightly.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Inflation forecasting RMSFE: HP versus Hamilton.}
+\label{tab:hamilton_forecast}
+\begin{tabular}{l rrrrr}
+\toprule
+Horizon & HP-L2 & HP-L1 & Ham-L2 & Ham-L1 & Naive \\
+\midrule
+$h = 1$ & 1.44 & 1.46 & 1.46 & 1.45 & 1.55 \\
+$h = 4$ & 1.94 & 1.94 & 2.04 & 2.02 & 1.92 \\
+$h = 8$ & 2.24 & 2.32 & 2.46 & 2.41 & 2.30 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Root mean squared forecast error from rolling-window Phillips Curve regressions (60-quarter window). Naive forecast uses the current inflation rate. Full sample period. All filters are evaluated on the Hamilton-available sample ($N = 185$), which is shorter than the HP-only sample ($N = 192$) because the Hamilton filter requires $p + h - 1 = 11$ initial observations. HP values here therefore differ slightly from Table~\ref{tab:inflation_subperiod}.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{International cycle skewness: Hamilton-L2 versus Hamilton-L1.}
+\label{tab:hamilton_international}
+\begin{tabular}{l r rr rr r}
+\toprule
+& & \multicolumn{2}{c}{Skewness} & \multicolumn{2}{c}{$p$-value} & \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6}
+Country & $N$ & Ham-L2 & Ham-L1 & Ham-L2 & Ham-L1 & Corr \\
+\midrule
+United States  & 249 & $-$0.71 & $-$0.43 & 0.000 & 0.007 & 0.98 \\
+United Kingdom & 172 & $-$2.39 & $-$2.49 & 0.000 & 0.000 & 0.99 \\
+Germany        & 129 & $-$0.76 & $-$0.75 & 0.001 & 0.001 & 0.99 \\
+France         & 173 & $-$1.35 & $-$0.00 & 0.000 & 0.992 & 0.92 \\
+Japan          & 117 & $-$1.36 & $-$1.35 & 0.000 & 0.000 & 0.99 \\
+Canada         & 249 & $-$0.91 & $-$0.74 & 0.000 & 0.000 & 0.99 \\
+Australia      & 244 &    0.76 &    0.79 & 0.000 & 0.000 & 0.99 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Hamilton filter with $h = 8$, $p = 4$ applied to log real GDP. $p$-values from D'Agostino skewness test. Corr is the correlation between Hamilton-L1 and Hamilton-L2 cycles. Sample periods vary by data availability.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+\subsection{Inflation Forecasting by Sub-Period}
+\label{app:inflation_subperiod}
+
+\begin{table}[htbp]
+\centering
+\begin{threeparttable}
+\caption{Out-of-sample inflation forecasting RMSFE by horizon and sub-period.}
+\label{tab:inflation_subperiod}
+\begin{tabular}{l l rrr}
+\toprule
+Horizon & Period & L1-HP & L2-HP & Naive \\
+\midrule
+\multirow{5}{*}{$h = 1$}
+ & Full sample        & 1.46 & 1.48 & 1.43 \\
+ & Pre-1990           & 2.07 & 2.08 & 2.06 \\
+ & Great Moderation   & 0.64 & 0.72 & 0.58 \\
+ & Post-GFC           & 0.58 & 0.59 & 0.69 \\
+ & Post-COVID         & 2.99 & 2.96 & 2.78 \\
+\midrule
+\multirow{5}{*}{$h = 4$}
+ & Full sample        & 1.82 & 1.82 & 1.85 \\
+ & Pre-1990           & 2.63 & 2.62 & 2.71 \\
+ & Great Moderation   & 0.83 & 0.86 & 0.80 \\
+ & Post-GFC           & 0.70 & 0.64 & 0.84 \\
+ & Post-COVID         & 3.36 & 3.39 & 3.22 \\
+\midrule
+\multirow{5}{*}{$h = 8$}
+ & Full sample        & 2.21 & 2.19 & 2.30 \\
+ & Pre-1990           & 3.51 & 3.44 & 3.63 \\
+ & Great Moderation   & 1.04 & 1.01 & 0.92 \\
+ & Post-GFC           & 0.74 & 0.71 & 0.88 \\
+ & Post-COVID         & 3.09 & 3.23 & 3.38 \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\small
+\item \textit{Notes:} Rolling-window Phillips Curve forecasting model: $\pi_{t+h} = \alpha + \beta \cdot \text{gap}_t + \gamma \pi_t + \varepsilon_{t+h}$. Window = 60 quarters. Inflation is annualized core CPI growth. Naive forecast uses current inflation. L1-HP uses $\lambda = 600$; L2-HP uses $\lambda = 1600$.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% APPENDIX D: SIMULATION SPECIFICATIONS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Simulation Specifications}
+\label{app:structural_specs}
+
+This appendix documents the eight simulation environments used in Section~\ref{sec:structural}, plus one additional specification (Asymmetric RBC) included in the Hamilton filter comparison of Appendix~\ref{app:hamilton}. All are implemented in \texttt{code/models/structural.py} of the replication archive and simulate $T = 200$ periods with a 50-period burn-in discarded. Each simulation isolates a single asymmetry mechanism in the simplest possible dynamic environment that produces it. The implementations are not numerical solutions of the cited models; each subsection states what the reduced form captures and what it omits from the full theoretical framework.
+
+\subsection*{Financial Accelerator}
+
+This captures the qualitative asymmetry of \citet{bernanke_etal1999}: credit constraints amplify contractions but not expansions. It omits general equilibrium feedback, endogenous net worth dynamics, and the agency cost structure of the full model. The output gap evolves as
+\begin{equation}
+c_t = \rho \, c_{t-1} + \varepsilon_t + W_t, \qquad \varepsilon_t \sim \mathcal{N}(0,\sigma^2)
+\end{equation}
+where the financial wedge $W_t = -\phi |c_{t-1}|$ is active only when $c_{t-1} < 0$, capturing the asymmetric tightening of credit constraints during downturns, as leverage costs rise when net worth falls, amplifying the contraction, but do not symmetrically subside during expansions. Potential output grows at constant rate $g$. Parameters: $\rho = 0.8$, $\sigma = 1.0$, $\phi = 0.1$, $g = 0.005$.
+
+\subsection*{Granular Economy}
+
+This is the closest simulation to the original theoretical framework, with Zipf-distributed firms and exit dynamics producing endogenous aggregate asymmetry, as in \citet{gabaix2011}. It simplifies the aggregation relative to the full model. A population of $N = 500$ firms has initial sizes distributed according to Zipf's law with Pareto exponent $\alpha = 1.06$. Firm-level productivity follows an AR(1) with fat-tailed innovations,
+\begin{equation}
+a_{i,t} = \rho_f \, a_{i,t-1} + \varepsilon_{i,t}, \qquad \varepsilon_{i,t} \sim t(3) \times \sigma_f
+\end{equation}
+A firm exits when $a_{i,t} < \bar{a} = -2.0$, generating a discrete aggregate output loss proportional to the exiting firm's size weight. New entrants replace exits at rate 0.10, entering at small scale. Aggregate output is a square-root-weighted sum of firm productivity plus the exit impact term, where the square-root weighting attenuates the influence of the largest firms relative to linear size weights. Asymmetry arises endogenously from the combination of power-law firm sizes, exit dynamics, and fat-tailed shocks: large-firm exits produce occasional sharp aggregate contractions with no symmetric upside. Parameters: $\alpha = 1.06$, $\sigma_f = 0.12$, $\rho_f = 0.8$, $\bar{a} = -2.0$, entry rate $= 0.10$.
+
+\subsection*{Heterogeneous-Agent New Keynesian (HANK)}
+
+This isolates the amplification channel from heterogeneous marginal propensities to consume, as in \citet{kaplan_etal2018}. It omits portfolio choice, idiosyncratic risk, sticky prices, and the full wealth distribution dynamics of the original model. A population of $N = 1{,}000$ agents has wealth drawn from a log-normal distribution. Agents with wealth below a threshold are borrowing-constrained and consume a fraction $\bar{m} = 0.8$ of current income; unconstrained agents consume fraction $\underline{m} = 0.1$. During recessions (aggregate shock $< 0$), the constraint threshold widens, raising the share of constrained agents and amplifying the aggregate consumption response relative to expansions. Potential output is defined as the output of a representative-agent economy where all agents face MPC $= \underline{m}$, so the cycle measures the extra volatility from household heterogeneity. Parameters: $\rho_\xi = 0.8$, $\sigma_\xi = 0.02$, $\bar{m} = 0.8$, $\underline{m} = 0.1$, $g = 0.005$, borrowing limit $= -1.0$, initial log-wealth standard deviation $= 2.0$, constraint threshold offsets $+2$ (moderate recession) and $+3$ (deep recession), income dispersion $= 0.1$.
+
+\subsection*{Production Network}
+
+This captures asymmetric shock propagation through input complementarities ($\sigma < 1$), as in \citet{acemoglu_etal2012} and \citet{baqaee_farhi2019}. It omits endogenous prices, equilibrium reallocation, and the higher-order terms of the full network model. Fifty sectors are linked by a random Leontief input-output network with density 0.20. Sector-level TFP follows an AR(1), $z_{i,t} = \rho_z z_{i,t-1} + \eta_{i,t}$. When the substitution elasticity $\sigma < 1$, negative sector shocks propagate through the Leontief inverse with amplification factor $(1 + 0.5(1-\sigma))$, while positive shocks propagate with factor $\sigma$, so contractions are amplified more than expansions. Aggregate output is the sector-size-weighted sum. Parameters: $n = 50$, $\rho_z = 0.9$, $\sigma_z = 0.02$, $\sigma = 0.5$, network density $= 0.20$, $g = 0.005$.
+
+\subsection*{Zero Lower Bound}
+
+This is a backward-looking three-equation New Keynesian model subject to an occasionally binding constraint, capturing the asymmetry channel of \citet{eggertsson_woodford2003}. It omits forward-looking expectations and the optimal policy analysis of the full framework. The model has IS curve, Phillips curve, and Taylor rule subject to the ZLB:
+\begin{align}
+c_t &= 0.8 \, c_{t-1} + d_t - 0.5 \, (i_t - i^*_t) \\
+\pi_t &= 0.5 \, \pi_{t-1} + \kappa \, c_t \\
+i_t &= \max\!\left(0,\; i^*_t\right), \qquad i^*_t = r^n + \phi_\pi \pi_{t-1} + \phi_y c_{t-1}
+\end{align}
+where $d_t = \rho_d d_{t-1} + \eta_t$ is a demand shock and $i^*_t$ is the unconstrained Taylor rule prescription. When $i^*_t < 0$, the ZLB binds and $(i_t - i^*_t) > 0$, depressing output below the unconstrained path. The ZLB introduces asymmetry because monetary policy can offset positive demand shocks but cannot symmetrically accommodate deep downturns. Parameters: $\kappa = 0.1$, $\beta = 0.99$, $\phi_\pi = 1.5$, $\phi_y = 0.125$, $r^n = 0.01$, $\sigma_d = 0.02$, $\rho_d = 0.8$, $g = 0.005$.
+
+\subsection*{Uncertainty Shocks}
+
+This captures the real-options investment freeze via a reduced-form drag term, following \citet{bloom2009}. It omits the firm-level value function problem with non-convex adjustment costs. Output gap dynamics are driven by a stochastic volatility process with right-skewed uncertainty innovations:
+\begin{align}
+v_t &= \rho_\sigma \, v_{t-1} + |\eta_t|, \qquad \eta_t \sim \mathcal{N}(0, \sigma_\sigma^2) \\
+c_t &= \rho \, c_{t-1} + \sigma_{\text{base}} \exp(v_t) \cdot \varepsilon_t - \phi \, \max(v_t,\, 0)
+\end{align}
+Using the half-normal $|\eta_t|$ makes $v_t$ right-skewed, so uncertainty spikes sharply upward but declines slowly as $v_t$ mean-reverts. The term $-\phi \max(v_t, 0)$ is a reduced-form real-options drag that directly depresses output when uncertainty is elevated, capturing the investment and hiring freeze documented by \citet{bloom2009}. Asymmetry arises because $v_t \geq 0$ by construction, so the drag is never positive. Parameters: $\rho = 0.9$, $\sigma_{\text{base}} = 0.01$, $\rho_\sigma = 0.7$, $\sigma_\sigma = 0.1$, $\phi = 0.3$, $g = 0.005$.
+
+\subsection*{Plucking Model}
+
+This captures the one-sided constraint from downward nominal wage rigidity, following \citet{dupraz_etal2020}. It omits the full Diamond-Mortensen-Pissarides search equilibrium and general equilibrium price dynamics of the original model. The simulation features a nominal wage floor: In each period, flexible wages $w^f_t$ are determined by aggregate conditions; actual wages satisfy
+\begin{equation}
+w_t = \max\!\left(w^f_t,\; w_{t-1}(1 + \gamma)\right)
+\end{equation}
+When the floor binds ($w^f_t < w_{t-1}(1+\gamma)$), labor demand falls below its flexible-price level and output falls below potential. Because the constraint is one-sided, the cycle is entirely nonpositive: output is either at potential or below it, never above. Potential output grows at $g$ plus a stochastic productivity component $a_t \sim \text{AR}(1)$. Parameters: $\beta = 0.99$, $\sigma = 2.0$, $\phi = 2.0$, $\theta = 6.0$, $\rho_a = 0.9$, $\sigma_a = 0.01$, $\rho_d = 0.8$, $\sigma_d = 0.02$, $\gamma = 0$, $g = 0.005$.
+
+\subsection*{Hysteresis}
+
+Following \citet{blanchard_summers1986}, potential output responds to past negative gaps:
+\begin{equation}
+\tau_t = \tau_{t-1} + g + \delta \, \min(c_{t-1},\, 0)
+\end{equation}
+where $\delta \in (0,1)$ is the hysteresis coefficient controlling what fraction of a negative output gap becomes a permanent reduction in potential. Output gap dynamics follow $c_t = \rho c_{t-1} + \varepsilon_t$ with $\varepsilon_t \sim \mathcal{N}(0, \sigma^2)$. The asymmetry is in the trend: potential falls during recessions but does not rise during expansions. Because the true potential is time-varying and declining, filter performance is evaluated against the model's own $\tau_t$ series. Parameters: $\rho = 0.8$, $\sigma = 0.02$, $\delta = 0.2$, $g = 0.005$.
+
+\subsection*{Asymmetric RBC}
+\label{app:asymrbc}
+
+A standard RBC model with skew-normal TFP shocks. The output gap follows
+\begin{equation}
+c_t = \rho \, c_{t-1} + \varepsilon_t, \qquad \varepsilon_t = \bigl(\xi_t - \mu_\xi\bigr) \cdot \sigma
+\end{equation}
+where $\xi_t \sim \text{SN}(a)$ with shape parameter $a = -5$ and the mean $\mu_\xi = \delta_a \sqrt{2/\pi}$, $\delta_a = a/\sqrt{1+a^2}$, is subtracted to ensure $\mathbb{E}[\varepsilon_t] = 0$. The skew-normal distribution produces negatively skewed shocks (sharp contractions, gradual expansions) while maintaining mean-zero innovations. Parameters: $\rho = 0.9$, $\sigma = 0.02$, $g = 0.005$.
+
+\end{document}
