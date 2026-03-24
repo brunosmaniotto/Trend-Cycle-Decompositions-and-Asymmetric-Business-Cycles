@@ -36,6 +36,10 @@ Thumbs.db
 *.fdb_latexmk
 *.fls
 
+# Manuscript PDFs
+manuscript/*.pdf
+!manuscript/paper.pdf
+
 # Working documents
 audit_report_*.md
 replication_report_*.md
